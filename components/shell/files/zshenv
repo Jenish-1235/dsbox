@@ -1,0 +1,19 @@
+# ~/.zshenv — read by every zsh, including non-interactive ones (agents, scripts, Cursor tasks).
+# Managed by devbox (ds update). Personal additions go in ~/.zshrc.local.
+
+. "$HOME/.cargo/env"
+
+# devbox commands first, then user tools, then mise shims so node/go/python
+# work even where .zshrc (and mise activate) doesn't run.
+typeset -U path PATH   # no duplicate entries when shells nest
+export PATH="$HOME/.devbox/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
+
+# Machine-wide devbox settings (domain, ports, ...), once they exist, then the
+# developer's own (~/.devbox/config.env, e.g. DEVBOX_FORGE=gitlab), which win.
+for f in /etc/devbox/devbox.env "$HOME/.devbox/config.env"; do
+  if [[ -r $f ]]; then
+    set -a
+    . "$f"
+    set +a
+  fi
+done

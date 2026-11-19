@@ -1,0 +1,15 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+/bin/
+.claude/
+.DS_Store
+.go/
+.cache/
+# Private per-devbox config and state (see README: the ops folder)
+.ops/
+.env
+/infra/envs/*
+!/infra/envs/example.tfvars

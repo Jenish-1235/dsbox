@@ -1,0 +1,24 @@
+name: claude
+description: Claude Code knows this machine, rings the bell (and the phone) when done or waiting, and reads screenshots sent from the laptop
+requires:
+  - { cmd: claude, install: curl -fsSL https://claude.ai/install.sh | bash }
+  - jq
+files:
+  - src: files/devbox.md
+    dest: ~/.claude/devbox.md
+  - src: files/devbox-claude-hooks
+    dest: ~/.devbox/bin/devbox-claude-hooks
+# The developer's own ~/.claude/CLAUDE.md and settings.json stay theirs: CLAUDE.md only gets
+# one import line, and settings.json only devbox's Stop and Notification hooks
+# (merged with jq; the developer's other settings and hooks are kept). The import goes on
+# its own line even when the developer's file doesn't end with a newline.
+after_apply:
+  - f=~/.claude/CLAUDE.md; mkdir -p ~/.claude && touch "$f" && { grep -qxF '@~/.claude/devbox.md' "$f" || { [ -z "$(tail -c1 "$f")" ] || echo >>"$f"; printf '%s\n' '@~/.claude/devbox.md' >>"$f"; }; }
+  - ~/.devbox/bin/devbox-claude-hooks
+checks:
+  - name: CLAUDE.md imports the devbox guide
+    run: grep -qxF '@~/.claude/devbox.md' ~/.claude/CLAUDE.md
+    fix: ds update
+  - name: Claude Code rings the bell when done or waiting (settings.json hooks)
+    run: jq -e '[.hooks.Stop, .hooks.Notification | [.[]?.hooks[]?.command?] | any(. == "~/.devbox/bin/ds notify bell")] | all' ~/.claude/settings.json >/dev/null
+    fix: devbox-claude-hooks

@@ -1,0 +1,16 @@
+# Managed by devbox (ds update). Runs devbox-check-updates.service daily.
+# Needs lingering (provision.sh --only linger) to run while the developer is logged out.
+[Unit]
+Description=Check for devbox updates daily
+
+[Timer]
+# Shortly after the user manager starts (at boot, with lingering), then daily
+# at a random time in the first hours of the day. Persistent catches up on a
+# run missed while the machine was off.
+OnStartupSec=5min
+OnCalendar=daily
+RandomizedDelaySec=3h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

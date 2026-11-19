@@ -1,0 +1,97 @@
+# ~/.zshrc — devbox shell.
+# Managed by devbox (ds update); source: devbox-setup/components/shell/files/zshrc.
+# Personal tweaks go in ~/.zshrc.local, which updates never touch.
+
+# --- PATH & runtimes ---------------------------------------------------------
+typeset -U path PATH
+path=("$HOME/.local/bin" "$HOME/.cargo/bin" $path)
+eval "$(mise activate zsh)"          # node, python, go, pnpm, bun, uv, cli tools
+
+export EDITOR=nano VISUAL=nano
+export LESS='-R -F -i'
+
+# --- History: big, shared across tmux panes, no duplicates -------------------
+HISTFILE=~/.zsh_history
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE \
+       HIST_REDUCE_BLANKS HIST_VERIFY
+
+# --- Behaviour ---------------------------------------------------------------
+setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT INTERACTIVE_COMMENTS NO_BEEP
+bindkey -e
+WORDCHARS=${WORDCHARS//[\/.-]/}      # Ctrl-W / Ctrl-arrows stop at / . -
+
+# --- Completion: menu, case-insensitive, coloured ----------------------------
+mkdir -p ~/.cache/zsh
+autoload -Uz compinit && compinit -d ~/.cache/zsh/zcompdump
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path ~/.cache/zsh
+
+# --- Keys: Up/Down search history by what's typed; Ctrl-Left/Right jump words -
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search
+bindkey '^[OA' up-line-or-beginning-search
+bindkey '^[[B' down-line-or-beginning-search
+bindkey '^[OB' down-line-or-beginning-search
+bindkey '^[[1;5C' forward-word
+bindkey '^[[1;5D' backward-word
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
+bindkey '^[[3~' delete-char
+
+# --- Tools -------------------------------------------------------------------
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+export FZF_CTRL_T_COMMAND=$FZF_DEFAULT_COMMAND
+export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+export FZF_DEFAULT_OPTS='--height 40% --layout reverse --border'
+source <(fzf --zsh)                  # Ctrl-R history, Ctrl-T files, Alt-C folders
+eval "$(zoxide init zsh)"            # z <part-of-folder-name> jumps there
+eval "$(starship init zsh)"          # prompt; config in ~/.config/starship.toml
+
+# --- Aliases -----------------------------------------------------------------
+# New names only: ls/cat/grep keep their normal behaviour, because Claude Code
+# picks up shell aliases and expects standard tools.
+alias l='eza --group-directories-first'
+alias ll='eza -l --git --group-directories-first'
+alias la='eza -la --git --group-directories-first'
+alias lt='eza --tree --level 2 --git-ignore'
+alias b='bat'
+alias lg='lazygit'
+alias lzd='lazydocker'
+alias dc='docker compose'
+alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
+alias gs='git status -sb'
+alias gl='git log --oneline --graph --decorate -20'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias p='cd ~/projects'
+alias t='tmux new -A -s main'        # attach to (or start) the "main" tmux session
+
+mkcd()  { mkdir -p "$1" && cd "$1"; }
+ports() { ss -ltnp 2>/dev/null | awk 'NR==1 || /users:/'; }   # what's listening, and which process
+
+# --- Plugins (syntax highlighting must stay last) ----------------------------
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+# --- Welcome: greeting, health, running apps and devbox notices. Local files
+# only, cut off after a second. The full greeting shows outside tmux and in the
+# first pane of a new tmux session; other panes get only the notices.
+alias welcome='devbox-welcome'
+if (( $+commands[timeout] )); then
+  if (( $+commands[devbox-welcome] )) &&
+     [[ -z $TMUX || $(tmux display -p '#{session_windows}#{window_panes}' 2>/dev/null) == 11 ]]; then
+    timeout 1 devbox-welcome 2>/dev/null || true
+  elif (( $+commands[ds] )); then
+    timeout 1 ds notices 2>/dev/null || true
+  fi
+fi

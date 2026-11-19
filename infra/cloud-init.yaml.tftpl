@@ -1,0 +1,49 @@
+#cloud-config
+# First-boot only: hostname + persistent data disk. Everything else is done by provision/.
+hostname: ${hostname}
+fqdn: ${hostname}
+preserve_hostname: false
+timezone: ${timezone}
+
+write_files:
+  - path: /usr/local/sbin/devbox-mount-data
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # Mounts the persistent data volume at /data and bind-mounts /home and /var/lib/docker onto it.
+      # Safe to re-run, and safe on a rebuilt instance: it never formats a disk that already has a filesystem.
+      set -euo pipefail
+      DEV=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${data_volume_id}
+
+      for i in $(seq 1 60); do [ -e "$DEV" ] && break; echo "waiting for data volume ($i)"; sleep 5; done
+      [ -e "$DEV" ] || { echo "data volume never attached" >&2; exit 1; }
+
+      if ! blkid "$DEV" >/dev/null 2>&1; then
+        echo "formatting new data volume"
+        mkfs.ext4 -L devdata "$DEV"
+      fi
+
+      UUID=$(blkid -s UUID -o value "$DEV")
+      mkdir -p /data
+      grep -q "$UUID" /etc/fstab || echo "UUID=$UUID /data ext4 defaults,nofail,discard 0 2" >> /etc/fstab
+      mountpoint -q /data || mount /data
+
+      # On first use, seed /data/home with whatever the image put in /home (e.g. the ubuntu user).
+      if [ ! -d /data/home ]; then
+        mkdir -p /data/home
+        cp -a /home/. /data/home/
+      fi
+      mkdir -p /data/docker /var/lib/docker /data/containerd /var/lib/containerd
+
+      grep -q '^/data/home ' /etc/fstab || echo "/data/home /home none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" >> /etc/fstab
+      grep -q '^/data/docker ' /etc/fstab || echo "/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" >> /etc/fstab
+      # Docker 29 keeps images in containerd's store, so it lives on the data disk too.
+      grep -q '^/data/containerd ' /etc/fstab || echo "/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" >> /etc/fstab
+      systemctl daemon-reload
+      mountpoint -q /home || mount /home
+      mountpoint -q /var/lib/docker || mount /var/lib/docker
+      mountpoint -q /var/lib/containerd || mount /var/lib/containerd
+      echo "data volume ready"
+
+runcmd:
+  - [/usr/local/sbin/devbox-mount-data]

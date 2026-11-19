@@ -1,0 +1,24 @@
+name: toolchain
+description: languages, build tools and CLIs every project expects
+requires:
+  - git
+  - { cmd: go, install: mise use -g go@latest }
+  - { cmd: golangci-lint, install: mise use -g golangci-lint@latest }
+  - { cmd: go-arch-lint, install: mise use -g aqua:fe3dback/go-arch-lint@latest }
+  - { cmd: squawk, install: mise use -g npm:squawk-cli@latest }
+  - { cmd: node, install: mise use -g node@lts }
+  - { cmd: pnpm, install: mise use -g pnpm@latest }
+  - { cmd: bun, install: mise use -g bun@latest }
+  - { cmd: python, install: mise use -g python@3.13 }
+  - { cmd: uv, install: mise use -g uv@latest }
+  - { cmd: cargo, install: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" }
+  - docker
+  - { cmd: just, install: mise use -g just@latest }
+  - { cmd: glab, install: mise use -g glab@latest }
+  - { cmd: gitleaks, install: mise use -g gitleaks@latest }
+  - gh
+  - { cmd: claude, install: curl -fsSL https://claude.ai/install.sh | bash }
+  - { cmd: lazygit, install: mise use -g lazygit@latest }
+  - { cmd: lazydocker, install: mise use -g lazydocker@latest }
+  - rg
+  - jq

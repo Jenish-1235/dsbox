@@ -1,0 +1,12 @@
+[Unit]
+Description=devbox: live pages for http://devbox and http://dbs.devbox (ds serve)
+
+[Service]
+ExecStart=%h/.devbox/bin/ds serve
+Environment=PATH=%h/.devbox/bin:%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+# ds serve exits after ds update replaces it; always come back on the new binary.
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

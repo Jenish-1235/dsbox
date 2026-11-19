@@ -1,0 +1,61 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Line 1: devbox  ~/projects/app  main !2  node 26  took 4s
+# Line 2: ❯
+format = """
+$hostname\
+$directory\
+$git_branch\
+$git_state\
+$git_status\
+$nodejs\
+$python\
+$golang\
+$rust\
+$cmd_duration\
+$line_break\
+$character"""
+
+add_newline = true
+command_timeout = 800
+
+[hostname]
+ssh_only = false            # always show it, so it's obvious this is the devbox
+format = '[$hostname]($style) '
+style = 'bold purple'
+
+[directory]
+truncation_length = 4
+truncate_to_repo = false
+style = 'bold cyan'
+
+[git_branch]
+format = '[$symbol$branch]($style) '
+
+[git_status]
+format = '([$all_status$ahead_behind]($style) )'
+
+[nodejs]
+format = '[$symbol$version]($style) '
+version_format = '${major}'
+
+[python]
+format = '[$symbol$version( \($virtualenv\))]($style) '
+version_format = '${major}.${minor}'
+
+[golang]
+format = '[$symbol$version]($style) '
+version_format = '${major}.${minor}'
+
+[rust]
+format = '[$symbol$version]($style) '
+version_format = '${major}.${minor}'
+
+[cmd_duration]
+min_time = 3000
+format = '[took $duration]($style) '
+style = 'yellow'
+
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol = '[❯](bold red)'

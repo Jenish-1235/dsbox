@@ -1,0 +1,24 @@
+# Managed by devbox (ds update). At boot (with lingering, before the developer logs in),
+# runs ds restore: starts every project from ~/.devbox/state/running.json that
+# isn't running. Logs: journalctl --user -u devbox-restore
+[Unit]
+Description=devbox: start the projects that ran before the reboot (ds restore)
+Documentation=https://github.com/Jenish-1235/dsbox
+After=default.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.devbox/bin:%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+# Projects with Docker services need Docker, a system service this user unit
+# can't order itself after: wait up to 60s for it, then start them anyway.
+ExecStartPre=-/usr/bin/timeout 60 /bin/sh -c 'until docker info >/dev/null 2>&1; do sleep 1; done'
+ExecStart=%h/.devbox/bin/ds restore
+# The projects run in tmux; when no tmux server runs yet, ds restore starts
+# one in this unit. Keep it, and the developer's sessions in it, when ds restore exits or
+# this unit is stopped.
+RemainAfterExit=yes
+KillMode=process
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=default.target

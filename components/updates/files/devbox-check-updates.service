@@ -1,0 +1,21 @@
+# Managed by devbox (ds update). Started by devbox-check-updates.timer.
+# Fetches the dsbox source and writes ~/.devbox/state/updates.json, and (with
+# DEVBOX_FORGE=gitlab) asks GitLab how the developer's GitHub mirrors are doing
+# (~/.devbox/state/mirrors.json); never changes anything else.
+# Logs: journalctl --user -u devbox-check-updates
+[Unit]
+Description=Check for devbox updates and GitHub mirror health
+Documentation=https://github.com/Jenish-1235/dsbox
+
+[Service]
+Type=oneshot
+# DEVBOX_CHANNEL (main or release) decides what counts as an update.
+EnvironmentFile=-/etc/devbox/devbox.env
+# glab comes from mise, whose shims aren't on systemd's PATH.
+Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Mirrors first, with "-" so a failed mirror check (e.g. glab logged out)
+# never stops or fails the update check.
+ExecStart=-%h/.devbox/bin/ds check-mirrors
+ExecStart=%h/.devbox/bin/ds check-updates
+Nice=10
+TimeoutStartSec=4min

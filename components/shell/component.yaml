@@ -1,0 +1,25 @@
+name: shell
+description: zsh with the starship prompt, history search, completions and aliases
+requires:
+  - zsh
+  - { cmd: starship, install: mise use -g starship }
+  - { cmd: fzf, install: mise use -g fzf }
+  - fd
+  - { cmd: zoxide, install: mise use -g zoxide }
+  - { cmd: eza, install: mise use -g eza }
+  - { cmd: bat, install: mise use -g bat }
+  - mise
+files:
+  - src: files/zshrc
+    dest: ~/.zshrc
+  - src: files/zshenv
+    dest: ~/.zshenv
+  - src: files/starship.toml
+    dest: ~/.config/starship.toml
+checks:
+  - name: zsh is the login shell
+    run: '[ "$(getent passwd "$(id -un)" | cut -d: -f7)" = "$(command -v zsh)" ]'
+    fix: sudo chsh -s "$(command -v zsh)" "$(id -un)"
+  - name: zsh plugins installed
+    run: test -r /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh -a -r /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    fix: sudo apt install -y zsh-autosuggestions zsh-syntax-highlighting

@@ -1,0 +1,17 @@
+name: web
+description: the live pages behind http://devbox (projects, cheatsheet) and http://dbs.devbox (databases)
+os: linux
+requires:
+  - tmux
+  - docker
+files:
+  - src: files/devbox-serve.service
+    dest: ~/.config/systemd/user/devbox-serve.service
+after_apply:
+  - systemctl --user daemon-reload
+  - systemctl --user enable --now devbox-serve.service
+  - systemctl --user restart devbox-serve.service
+checks:
+  - name: devbox pages running
+    run: systemctl --user is-active --quiet devbox-serve.service
+    fix: systemctl --user restart devbox-serve.service; journalctl --user -u devbox-serve -n 20

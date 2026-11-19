@@ -1,0 +1,13 @@
+name: updates
+description: checks for devbox updates and GitHub mirror health once a day, so a new shell can say when an update is ready or a mirror fails
+os: linux
+requires:
+  - systemctl
+files:
+  - src: files/devbox-check-updates.service
+    dest: ~/.config/systemd/user/devbox-check-updates.service
+  - src: files/devbox-check-updates.timer
+    dest: ~/.config/systemd/user/devbox-check-updates.timer
+after_apply:
+  - systemctl --user daemon-reload
+  - systemctl --user enable --now devbox-check-updates.timer

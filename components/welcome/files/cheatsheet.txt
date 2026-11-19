@@ -1,0 +1,53 @@
+DEVBOX CHEATSHEET                                  (ds cheat · http://devbox)
+
+Projects
+  ds                          your projects and their links
+  ds new                      pick a template (or "empty") and a name; it starts in seconds
+  ds new <template> <name>    the same, without the questions
+  ds templates                list templates: nextjs, react-vite, ddd-golang, empty
+  ds up [name]                start it (inside the project folder, no name needed); it comes back after a reboot
+  ds stop [name]              stop it (and keep it stopped after a reboot)
+  ds logs [name] -f           follow what it prints
+  ds attach [name]            open its window; Ctrl-b d leaves it running
+  ds url [name]               print its link
+  ds restore                  start every project that ran before (runs by itself at boot)
+
+GitHub or GitLab (DEVBOX_FORGE; set your own in ~/.devbox/config.env; github when unset)
+  ds publish [name]           push to origin; with none, first create a private repo on the forge
+  ds publish --github         gitlab only: also keep a read-only GitHub mirror, no question (--no-github: never)
+  ds mirrors                  gitlab only: every GitHub mirror and its last sync; failures say how to fix them
+
+From your laptop (and phone)
+  https://<project>.devbox    the app: browser, Postman (http:// works too, e.g. on a phone)
+  https://devbox              every project (running or not), plus this cheatsheet
+  https://dbs.devbox          running databases with ready-to-copy connection strings
+  devbox:<port>               databases and other Docker services (ds d shows each one, c copies its connection string)
+  ds cert                     once per laptop: trust the devbox certificate (file: http://devbox/root.crt)
+
+Inside a project
+  just --list                 its recipes: setup, dev, test, lint, up, down
+  just up / just down         start / stop its databases (docker compose)
+  just lint && just test      run before committing
+  claude                      an agent that knows this machine and the project rules
+
+Claude Code
+  Ctrl+Alt+V (laptop)         send the clipboard screenshot here; then Ctrl+V pastes its path into Claude
+  ds inbox                    screenshots sent from the laptop, newest first (kept 7 days)
+  ds notify setup             phone push when Claude is done or needs you (ntfy app)
+  ds notify off               stop phone pushes; the terminal bell stays
+
+Terminal
+  t                           your workspace (tmux); keeps running when you close the laptop
+  Ctrl-b |   Ctrl-b -         split the screen;  Ctrl-b d  leave it running
+  Ctrl-R                      search every command you've run
+  z <folder>                  jump to a folder you've visited
+  lg                          git (lazygit)
+  ds d                        Docker by project: logs, shell, restart, ports, DB connection strings, disk
+  lzd                         Docker, the raw view (lazydocker)
+  ports                       what's listening, and which program
+
+Machine
+  ds doctor                   check everything, with fixes
+  ds update / ds rollback     get / undo devbox improvements
+  ds status                   version, updates, health
+  ds help                     every ds command

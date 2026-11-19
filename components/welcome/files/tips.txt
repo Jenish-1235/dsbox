@@ -1,0 +1,27 @@
+# One tip per line, shown under the status line in new terminals.
+# Tips added in an update are shown first, marked "new:", once each.
+ds new asks for a template and a name; "empty" gives just git plus the agent rules and skills
+ds up runs the project you're in and prints its link; it keeps running after you close the laptop
+ds ls shows every project and its link; ds stop <name> stops one
+ds logs <name> -f follows what your app prints
+ds attach <name> jumps into a running server, e.g. to press Vite's shortcuts (Ctrl-b d to leave)
+each project keeps the same port, so its link never changes
+point Postman at http://devbox:<port>, the same address as in your browser
+databases from just up are reachable from your laptop too: e.g. devbox:5432 in DBeaver or TablePlus
+your links work on your phone as well, with Tailscale on
+just --list shows a project's recipes: setup, dev, test, lint, up, down
+Claude Code knows this machine: ask it to run your app and it replies with the link
+ds doctor checks the whole machine and says how to fix anything wrong
+ds update installs the latest devbox improvements; ds rollback undoes the last one
+lzd shows every container with its logs and stats
+t opens your workspace; Ctrl-b d leaves it running in the background
+open http://devbox for every project link and the full cheatsheet (ds cheat in the terminal)
+open http://<project>.devbox instead of remembering ports
+ds d shows your containers grouped by project; c copies a database connection string for DBeaver or .env
+http://dbs.devbox lists running databases with connection strings to copy into DBeaver or .env
+ds publish puts the project you are in on GitHub, or on GitLab with DEVBOX_FORGE=gitlab in ~/.devbox/config.env (ds config shows which)
+with DEVBOX_FORGE=gitlab, ds publish --github also keeps a read-only copy on GitHub; ds mirrors shows whether it is in sync
+screenshot for Claude: copy it on the laptop, press Ctrl+Alt+V, then Ctrl+V pastes its devbox path into Claude
+ds notify setup sends a phone push when Claude is done or needs you; the terminal already rings
+links are https now: ds cert shows the one-time step to trust the devbox certificate on your laptop
+projects you started with ds up start again by themselves after a reboot; ds stop keeps one stopped

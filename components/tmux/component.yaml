@@ -1,0 +1,10 @@
+name: tmux
+description: tmux with mouse support, copy to the Windows clipboard, splits in the current folder, and bells passed on to the laptop
+requires:
+  - tmux
+files:
+  - src: files/tmux.conf
+    dest: ~/.tmux.conf
+# A running tmux keeps its old settings until it reloads them.
+after_apply:
+  - tmux source-file ~/.tmux.conf 2>/dev/null || true

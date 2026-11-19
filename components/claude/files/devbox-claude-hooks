@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# devbox-claude-hooks — add devbox's Claude Code hooks to ~/.claude/settings.json.
+# Managed by devbox (ds update runs it). Everything else in the file stays yours.
+#   devbox-claude-hooks [settings.json]
+#
+# Stop (Claude is done) and Notification (Claude needs you) each get:
+#   ~/.devbox/bin/ds notify bell   rings the terminal bell; tmux passes it on to the laptop
+#   ~/.devbox/bin/ds notify hook   pushes to the phone, only after `ds notify setup`
+# Running it again replaces devbox's hooks with the current ones. It never
+# duplicates them and never changes hooks or settings it didn't add.
+set -euo pipefail
+
+settings=${1:-$HOME/.claude/settings.json}
+[[ -L $settings ]] && settings=$(readlink -f "$settings") # keep a dotfiles symlink
+mkdir -p "$(dirname "$settings")"
+[[ -s $settings ]] || printf '{}\n' >"$settings"
+
+filter='
+def ours: ((.command? | strings) // "") | startswith("~/.devbox/bin/ds notify");
+# Drop devbox handlers, and groups that held only devbox handlers.
+def strip: map(
+  if (.hooks | type) == "array" and any(.hooks[]; ours)
+  then .hooks |= map(select(ours | not)) | select(.hooks | length > 0)
+  else . end);
+def handlers: [
+  {type: "command", command: "~/.devbox/bin/ds notify bell", timeout: 5},
+  {type: "command", command: "~/.devbox/bin/ds notify hook", async: true}
+];
+.hooks //= {}
+| .hooks.Stop = ((.hooks.Stop // []) | strip) + [{hooks: handlers}]
+| .hooks.Notification = ((.hooks.Notification // []) | strip) + [{
+    matcher: "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input",
+    hooks: handlers}]
+'
+
+# Write a copy (same permissions) and swap it in only when something changed.
+tmp=$(mktemp "$settings.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+cp -p "$settings" "$tmp"
+jq "$filter" "$settings" >"$tmp"
+cmp -s "$tmp" "$settings" || mv "$tmp" "$settings"

@@ -1,0 +1,17 @@
+name: restore
+description: after a reboot, starts the projects that were running (every ds up not followed by ds stop)
+os: linux
+requires:
+  - tmux
+  - systemctl
+files:
+  - src: files/devbox-restore.service
+    dest: ~/.config/systemd/user/devbox-restore.service
+# Enabled only: starting it is for boot. Restarting it on updates isn't needed.
+after_apply:
+  - systemctl --user daemon-reload
+  - systemctl --user enable devbox-restore.service
+checks:
+  - name: projects restart after a reboot
+    run: systemctl --user is-enabled --quiet devbox-restore.service
+    fix: systemctl --user enable devbox-restore.service

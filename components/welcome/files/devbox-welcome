@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# devbox-welcome — machine status at the top of a new terminal.
+# Managed by devbox (ds update). Local information only: it must stay fast.
+#   devbox-welcome   status, running apps, a tip, notices
+set -u
+
+if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
+  b=$'\e[1m' d=$'\e[2m' r=$'\e[0m' p=$'\e[38;5;141m' c=$'\e[36m' g=$'\e[32m' y=$'\e[33m'
+else
+  b='' d='' r='' p='' c='' g='' y=''
+fi
+
+read -r mem_total mem_used < <(free -m | awk '/^Mem:/ {print $2, $3}')
+disk=$(df -P "$HOME" | awk 'NR==2 {gsub("%", "", $5); print $5}')
+up=$(uptime -p | sed 's/^up //; s/ hours\?/h/; s/ minutes\?/m/; s/ days\?/d/; s/ weeks\?/w/; s/,//g')
+mem=$(awk -v u="$mem_used" -v t="$mem_total" 'BEGIN {printf "%.1f/%.0f GB", u/1024, t/1024}')
+disk_color=$g
+((disk >= 85)) && disk_color=$y
+
+printf '%s%s%s  %s· RAM %s · disk %s%s%%%s%s · up %s%s\n' \
+  "$p$b" "devbox" "$r" "$d" "$mem" "$disk_color" "$disk" "$r" "$d" "$up" "$r"
+
+if command -v ds >/dev/null 2>&1; then
+  while IFS=$'\t' read -r app url; do
+    [[ -n $app ]] && printf '  %s●%s %-18s %s%s%s\n' "$g" "$r" "$app" "$c" "$url" "$r"
+  done < <(timeout 0.5 ds ls --brief 2>/dev/null)
+fi
+
+# Tips: a tip added by an update is shown first, once, as "new:"; otherwise a
+# random one. The first run marks every existing tip as seen.
+tips_file=${DEVBOX_HOME:-$HOME/.devbox}/share/tips.txt
+seen_file=${DEVBOX_HOME:-$HOME/.devbox}/state/tips-seen
+if [[ -r $tips_file ]]; then
+  mapfile -t tips < <(grep -v -e '^#' -e '^[[:space:]]*$' "$tips_file")
+  if ((${#tips[@]} > 0)); then
+    if [[ ! -e $seen_file ]]; then
+      printf '%s\n' "${tips[@]}" >"$seen_file" 2>/dev/null
+    fi
+    fresh=""
+    for tip in "${tips[@]}"; do
+      if ! grep -qxF -- "$tip" "$seen_file" 2>/dev/null; then
+        fresh=$tip
+        break
+      fi
+    done
+    if [[ -n $fresh ]]; then
+      printf '  %snew:%s %s\n' "$y" "$r" "$fresh"
+      printf '%s\n' "$fresh" >>"$seen_file" 2>/dev/null
+    else
+      printf '  %stip: %s%s\n' "$d" "${tips[RANDOM % ${#tips[@]}]}" "$r"
+    fi
+  fi
+fi
+
+command -v ds >/dev/null 2>&1 && timeout 0.5 ds notices 2>/dev/null
+exit 0

@@ -1,0 +1,12 @@
+name: welcome
+description: machine status in every new terminal, devbox tips, and the cheatsheet (ds cheat, http://devbox)
+os: linux
+files:
+  - src: files/devbox-welcome
+    dest: ~/.devbox/bin/devbox-welcome
+  # Add a line here when shipping a feature: the developer sees it once, marked "new:".
+  - src: files/tips.txt
+    dest: ~/.devbox/share/tips.txt
+  # Everything the developer can do. Shown by ds cheat and on http://devbox.
+  - src: files/cheatsheet.txt
+    dest: ~/.devbox/share/cheatsheet.txt
