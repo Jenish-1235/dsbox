@@ -86,6 +86,13 @@ repository and ask it to set up a devbox: the `dsbox-setup` skill
 (`.claude/skills/dsbox-setup/`) walks through these steps, runs the checks,
 and stops for anything that costs money or needs a login.
 
+Everything runs from a clone of this repository on the operator's machine:
+
+```sh
+git clone https://github.com/Jenish-1235/dsbox.git
+cd dsbox
+```
+
 1. **Describe the devbox.** Per-devbox values live in a private ops folder,
    `$DEVBOX_OPS`, set in the environment or in a `.env` file in the repo root.
    The default is `.ops/` in the repo, which is gitignored.
@@ -105,6 +112,11 @@ and stops for anything that costs money or needs a login.
    just infra-plan alex     # review the plan
    just infra-apply alex
    ```
+
+   This creates the instance, data disk, snapshots, budget alert and SSM
+   access in the AWS account from the tfvars, using the OpenTofu code in
+   `infra/`. The apply also backs up the state to a private S3 bucket in that
+   account (`just state-backup alex`).
 
 3. **Provision it** from an SSM shell (`just vm-shell alex`):
 
