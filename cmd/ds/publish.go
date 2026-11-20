@@ -17,23 +17,29 @@ import (
 	"github.com/Jenish-1235/dsbox/internal/ui"
 )
 
-// runPublish is ds publish [name] [--github|--no-github]. The flags only
-// apply to the gitlab forge; publish.Publisher says so for github.
+// runPublish is ds publish [name] [--github|--no-github|--gitlab|--no-gitlab].
+// --github adds a GitHub mirror to a GitLab project (the gitlab forge),
+// --gitlab a GitLab copy to a GitHub project (the github forge);
+// publish.Publisher says when a flag doesn't fit.
 func runPublish(ctx context.Context, l layout.Layout, args []string, out ui.Printer) error {
 	flags, pos := splitFlags(args)
-	choice := publish.AskGitHub
+	if len(flags) > 1 {
+		return errors.New("choose one of --github, --no-github, --gitlab and --no-gitlab")
+	}
+	var pf publish.Flags
 	for f := range flags {
 		switch f {
 		case "--github":
-			choice = publish.WithGitHub
+			pf = publish.Flags{Choice: publish.WithMirror, To: config.ForgeGitHub}
 		case "--no-github":
-			choice = publish.WithoutGitHub
+			pf = publish.Flags{Choice: publish.WithoutMirror, To: config.ForgeGitHub}
+		case "--gitlab":
+			pf = publish.Flags{Choice: publish.WithMirror, To: config.ForgeGitLab}
+		case "--no-gitlab":
+			pf = publish.Flags{Choice: publish.WithoutMirror, To: config.ForgeGitLab}
 		default:
-			return fmt.Errorf("unknown flag %s (ds publish [name] [--github|--no-github])", f)
+			return fmt.Errorf("unknown flag %s (ds publish [name] [--github|--no-github|--gitlab|--no-gitlab])", f)
 		}
-	}
-	if flags["--github"] && flags["--no-github"] {
-		return errors.New("choose one of --github and --no-github")
 	}
 	arg := ""
 	if len(pos) > 0 {
@@ -53,15 +59,20 @@ func runPublish(ctx context.Context, l layout.Layout, args []string, out ui.Prin
 	if interactive() {
 		pb.Ask = askMirror
 	}
-	return pb.Publish(ctx, publish.Project{Name: p.Name, Dir: p.Dir}, choice)
+	return pb.Publish(ctx, publish.Project{Name: p.Name, Dir: p.Dir}, pf)
 }
 
-// askMirror asks whether to mirror to GitHub; the default is no.
-func askMirror(ctx context.Context, name string) (bool, error) {
+// askMirror asks whether to keep a copy of name on to (GitHub or GitLab);
+// the default is no.
+func askMirror(ctx context.Context, name, to string) (bool, error) {
+	title, desc := "Mirror to GitHub? (y/N)", "A private, read-only copy of "+name+" on GitHub, kept in sync by GitLab"
+	if to == "GitLab" {
+		title, desc = "Copy to GitLab? (y/N)", "A private copy of "+name+" on GitLab; git push from here updates GitHub and GitLab"
+	}
 	yes := false
 	err := huh.NewForm(huh.NewGroup(huh.NewConfirm().
-		Title("Mirror to GitHub? (y/N)").
-		Description("A private, read-only copy of " + name + " on GitHub, kept in sync by GitLab").
+		Title(title).
+		Description(desc).
 		Affirmative("Yes").
 		Negative("No").
 		Value(&yes))).RunWithContext(ctx)
@@ -69,25 +80,30 @@ func askMirror(ctx context.Context, name string) (bool, error) {
 		return false, errReported
 	}
 	if err != nil {
-		return false, fmt.Errorf("ask about GitHub: %w", err)
+		return false, fmt.Errorf("ask about %s: %w", to, err)
 	}
 	return yes, nil
 }
 
-// mirroring reports whether GitHub mirrors apply here: only GitLab projects
-// have them, so only the gitlab forge checks and reports them.
-func mirroring(l layout.Layout) bool {
-	return devproj.LoadSettings(l).Forge == config.ForgeGitLab
+// copies reports whether the forge is github, where projects get copies on
+// GitLab; with gitlab they get mirrors on GitHub.
+func copies(l layout.Layout) bool {
+	return devproj.LoadSettings(l).Forge != config.ForgeGitLab
 }
 
-// runMirrors is ds mirrors: every GitHub mirror, checked now.
-func runMirrors(ctx context.Context, l layout.Layout, out ui.Printer) error {
-	if !mirroring(l) {
-		out.Text("No mirrors to check: %s is github, and mirrors are for GitLab projects.", config.Forge)
-		return nil
+// checkAll checks the forge's kind: copies on GitLab or mirrors to GitHub.
+func checkAll(ctx context.Context, l layout.Layout, prev publish.Status) (publish.Status, error) {
+	if copies(l) {
+		return publish.CheckCopies(ctx, publish.Exec{}, "", prev)
 	}
+	return publish.Check(ctx, publish.Exec{}, "", prev)
+}
+
+// runMirrors is ds mirrors: every GitHub mirror (gitlab forge) or GitLab
+// copy (github forge), checked now.
+func runMirrors(ctx context.Context, l layout.Layout, out ui.Printer) error {
 	prev, _, _ := publish.LoadStatus(l.MirrorsFile()) // a broken cache is simply replaced
-	st, err := publish.Check(ctx, publish.Exec{}, "", prev)
+	st, err := checkAll(ctx, l, prev)
 	if err != nil {
 		out.Fail("Can't list mirrors: %v", err)
 		out.Hint("glab auth status shows whether you're logged in to GitLab")
@@ -96,25 +112,25 @@ func runMirrors(ctx context.Context, l layout.Layout, out ui.Printer) error {
 	if err := st.Save(l.MirrorsFile()); err != nil {
 		out.Warn("Couldn't save the mirror status: %v", err)
 	}
+	if copies(l) {
+		publish.ReportCopies(out, st)
+		return nil
+	}
 	publish.Report(out, st, time.Now())
 	return nil
 }
 
 // checkMirrors is ds check-mirrors, run daily by devbox-check-updates.service:
-// it saves every mirror's state for ds notices.
+// it saves every mirror's (or copy's) state for ds notices.
 func checkMirrors(ctx context.Context, l layout.Layout, out ui.Printer) error {
-	if !mirroring(l) {
-		out.OK("%s is github; no mirrors to check", config.Forge)
-		return nil
-	}
 	if !sysexec.Exists("glab") {
-		out.OK("glab isn't installed; no mirrors to check")
+		out.OK("glab isn't installed; no mirrors or copies to check")
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	prev, _, _ := publish.LoadStatus(l.MirrorsFile()) // a broken cache is simply replaced
-	st, err := publish.Check(ctx, publish.Exec{}, "", prev)
+	st, err := checkAll(ctx, l, prev)
 	if err != nil {
 		// Keep the last known mirrors; say why this check didn't finish.
 		prev.CheckedAt, prev.Error = time.Now().UTC(), err.Error()
@@ -135,24 +151,29 @@ func checkMirrors(ctx context.Context, l layout.Layout, out ui.Printer) error {
 			failed++
 		}
 	}
+	what := "mirrors"
+	if copies(l) {
+		what = "GitLab copies"
+	}
 	switch {
 	case failed > 0:
-		out.Fail("%d of %d mirrors failing → ds mirrors", failed, len(st.Mirrors))
+		out.Fail("%d of %d %s need attention → ds mirrors", failed, len(st.Mirrors), what)
 	case len(st.Mirrors) == 0:
-		out.OK("No GitHub mirrors to check")
+		out.OK("No %s to check", what)
 	default:
-		out.OK("%d mirrors checked, none failing", len(st.Mirrors))
+		out.OK("%d %s checked, all fine", len(st.Mirrors), what)
 	}
 	return nil
 }
 
-// mirrorNotices prints a line per failing mirror from the cached check. With
-// the github forge nothing checks mirrors, so an old cache says nothing.
+// mirrorNotices prints a line per failing mirror or copy from the cached
+// check, of the kind the forge uses.
 func mirrorNotices(l layout.Layout, out ui.Printer) {
 	st, ok, err := publish.LoadStatus(l.MirrorsFile())
-	if !ok || err != nil || !mirroring(l) {
+	if !ok || err != nil {
 		return
 	}
+	st = st.For(devproj.LoadSettings(l).Forge)
 	for _, n := range publish.Notices(st, time.Now()) {
 		out.Warn("%s", n)
 	}

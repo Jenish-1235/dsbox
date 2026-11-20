@@ -9,13 +9,15 @@ import (
 	"github.com/Jenish-1235/dsbox/internal/config"
 )
 
-// newGitHubHarness publishes with DEVBOX_FORGE=github.
+// newGitHubHarness publishes with DEVBOX_FORGE=github, for a developer not
+// logged in to GitLab: nothing may ask about a copy there.
 func newGitHubHarness(t *testing.T) *harness {
 	t.Helper()
 	h := newHarness(t)
 	h.pb.Forge = config.ForgeGitHub
-	h.pb.Ask = func(context.Context, string) (bool, error) {
-		t.Error("asked about a GitHub mirror with the github forge")
+	h.f.glSignedOut = true
+	h.pb.Ask = func(_ context.Context, _, to string) (bool, error) {
+		t.Errorf("asked about a copy on %s without a GitLab login", to)
 		return false, nil
 	}
 	return h
@@ -24,7 +26,7 @@ func newGitHubHarness(t *testing.T) *harness {
 func TestGitHubPublishNewRepo(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.branches = []string{"feature", "main"} // feature arrives first
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	repo, ok := h.f.repos["alex-gh/shop"]
@@ -46,8 +48,8 @@ func TestGitHubPublishNewRepo(t *testing.T) {
 	if repo.DefaultBranch != "main" {
 		t.Errorf("default branch = %q, want main", repo.DefaultBranch)
 	}
-	if h.f.ran("glab") != 0 {
-		t.Errorf("ran glab with the github forge: %v", h.f.calls)
+	if h.f.ran("glab api") != 0 || len(h.f.pushURLs) != 0 {
+		t.Errorf("used GitLab without a GitLab login: %v", h.f.calls)
 	}
 	for _, want := range []string{"Created GitHub repo alex-gh/shop (private)", "Pushed 2 branches, 0 tags to alex-gh/shop", "GitHub  https://github.com/alex-gh/shop"} {
 		if !strings.Contains(h.out.String(), want) {
@@ -62,7 +64,7 @@ func TestGitHubPublishNewRepo(t *testing.T) {
 func TestGitHubPublishSSH(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.ghProtocol = "ssh"
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if h.f.origin != "git@github.com:alex-gh/shop.git" {
@@ -76,7 +78,7 @@ func TestGitHubPublishReusesEmptyRepo(t *testing.T) {
 		h := newGitHubHarness(t)
 		h.f.repos["alex-gh/shop"] = ghRepo{}
 		h.f.ghEmpty409 = answer409
-		if err := h.publish(t, AskGitHub); err != nil {
+		if err := h.publish(t, AskMirror); err != nil {
 			t.Fatalf("Publish() (409: %v) = %v\n%s", answer409, err, h.out)
 		}
 		if h.f.ran("gh repo create") != 0 || h.f.origin != "https://github.com/alex-gh/shop.git" {
@@ -93,7 +95,7 @@ func TestGitHubPublishRefusesRepoWithCommits(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.repos["alex-gh/shop"] = ghRepo{}
 	h.f.ghBranches["alex-gh/shop"] = map[string]string{"main": "sha-theirs"}
-	err := h.publish(t, AskGitHub)
+	err := h.publish(t, AskMirror)
 	if !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported\n%s", err, h.out)
 	}
@@ -115,7 +117,7 @@ func TestGitHubPublishExistingOrigin(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.origin = "git@github.com:acme/shop.git"
 	h.f.repos["acme/shop"] = ghRepo{DefaultBranch: "main"}
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if h.f.ran("gh repo create") != 0 || h.f.ran("git remote add") != 0 || h.f.ran("gh repo edit") != 0 {
@@ -129,7 +131,7 @@ func TestGitHubPublishExistingOrigin(t *testing.T) {
 func TestGitHubPublishMissingOrigin(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.origin = "https://github.com/alex-gh/gone.git"
-	if err := h.publish(t, AskGitHub); !errors.Is(err, ErrReported) {
+	if err := h.publish(t, AskMirror); !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}
 	if h.f.ran("git push") != 0 || !strings.Contains(h.out.String(), "origin points at github.com/alex-gh/gone, which doesn't exist or you can't see") {
@@ -140,7 +142,7 @@ func TestGitHubPublishMissingOrigin(t *testing.T) {
 func TestGitHubPublishLoggedOut(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.ghBroken = true
-	if err := h.publish(t, AskGitHub); !errors.Is(err, ErrReported) {
+	if err := h.publish(t, AskMirror); !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}
 	if h.f.ran("git push") != 0 || h.f.ran("git remote add") != 0 || !strings.Contains(h.out.String(), "gh auth login, then ds publish") {
@@ -153,7 +155,7 @@ func TestGitHubPublishGitLabOrigin(t *testing.T) {
 	h := newGitHubHarness(t)
 	h.f.origin = "git@gitlab.com:alex/shop.git"
 	h.f.addProject("alex/shop")
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if h.f.ran("git push --quiet -u origin --all") != 1 || h.f.ran("gh") != 0 || h.f.ran("glab api --hostname gitlab.com --method POST") != 0 {
@@ -165,7 +167,7 @@ func TestGitHubPublishGitLabOrigin(t *testing.T) {
 }
 
 func TestGitHubPublishRejectsMirrorFlags(t *testing.T) {
-	for _, choice := range []GitHubChoice{WithGitHub, WithoutGitHub} {
+	for _, choice := range []MirrorChoice{WithMirror, WithoutMirror} {
 		h := newGitHubHarness(t)
 		if err := h.publish(t, choice); !errors.Is(err, ErrReported) {
 			t.Fatalf("Publish(%v) = %v, want ErrReported", choice, err)
@@ -182,7 +184,7 @@ func TestGitHubPublishRejectsMirrorFlags(t *testing.T) {
 func TestPublishUnknownForge(t *testing.T) {
 	h := newHarness(t)
 	h.pb.Forge = "bitbucket"
-	if err := h.publish(t, AskGitHub); !errors.Is(err, ErrReported) {
+	if err := h.publish(t, AskMirror); !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}
 	if len(h.f.calls) != 0 || !strings.Contains(h.out.String(), `DEVBOX_FORGE is "bitbucket"; it must be github or gitlab`) {
@@ -193,7 +195,7 @@ func TestPublishUnknownForge(t *testing.T) {
 func TestPublishDefaultForgeIsGitHub(t *testing.T) {
 	h := newHarness(t)
 	h.pb.Forge = ""
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if _, ok := h.f.repos["alex-gh/shop"]; !ok || len(h.f.projects) != 0 {

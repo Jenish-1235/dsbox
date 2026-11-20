@@ -48,9 +48,10 @@ Projects:
 
 GitHub or GitLab (DEVBOX_FORGE in ds config; github when unset):
   ds publish [name]         push to origin; with none, first create a private repo
-                            on the forge. gitlab: then ask about a GitHub mirror
-  ds publish --github       gitlab: mirror without asking (--no-github: don't)
-  ds mirrors                gitlab: each GitHub mirror and whether its last sync worked
+                            on the forge, then ask about a copy on the other one
+  ds publish --github       gitlab: GitLab mirrors it to GitHub, no question (--no-github: don't)
+  ds publish --gitlab       github: git push also updates a GitLab copy, no question (--no-gitlab: don't)
+  ds mirrors                each GitHub mirror or GitLab copy, and whether it's in sync
 
 Claude Code:
   ds notify setup           phone pushes when Claude is done or needs you (ntfy)

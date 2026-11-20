@@ -74,9 +74,19 @@ func newHarness(t *testing.T) *harness {
 	return h
 }
 
-func (h *harness) publish(t *testing.T, choice GitHubChoice) error {
+// publish runs ds publish with choice as --github or --no-github (none for AskMirror).
+func (h *harness) publish(t *testing.T, choice MirrorChoice) error {
 	t.Helper()
-	return h.pb.Publish(t.Context(), Project{Name: "shop", Dir: t.TempDir()}, choice)
+	f := Flags{Choice: choice}
+	if choice != AskMirror {
+		f.To = config.ForgeGitHub
+	}
+	return h.publishFlags(t, f)
+}
+
+func (h *harness) publishFlags(t *testing.T, f Flags) error {
+	t.Helper()
+	return h.pb.Publish(t.Context(), Project{Name: "shop", Dir: t.TempDir()}, f)
 }
 
 // noSecret fails when the token shows up anywhere but a request body.
@@ -98,7 +108,7 @@ func (h *harness) noSecret(t *testing.T, err error) {
 
 func TestPublishNewProjectWithMirror(t *testing.T) {
 	h := newHarness(t)
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	h.noSecret(t, err)
 	if err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
@@ -149,11 +159,11 @@ func TestPublishNewProjectWithMirror(t *testing.T) {
 
 func TestPublishTwiceReuses(t *testing.T) {
 	h := newHarness(t)
-	if err := h.publish(t, WithGitHub); err != nil {
+	if err := h.publish(t, WithMirror); err != nil {
 		t.Fatalf("first Publish() = %v\n%s", err, h.out)
 	}
 	h.out.Reset()
-	if err := h.publish(t, WithGitHub); err != nil {
+	if err := h.publish(t, WithMirror); err != nil {
 		t.Fatalf("second Publish() = %v\n%s", err, h.out)
 	}
 	if len(h.f.projects) != 1 {
@@ -177,7 +187,7 @@ func TestPublishTwiceReuses(t *testing.T) {
 	// A new commit makes the next run sync again.
 	h.f.branches = append(h.f.branches, "feature")
 	h.out.Reset()
-	if err := h.publish(t, WithGitHub); err != nil {
+	if err := h.publish(t, WithMirror); err != nil {
 		t.Fatalf("third Publish() = %v\n%s", err, h.out)
 	}
 	if !strings.Contains(h.out.String(), "Mirror synced") || h.f.ghBranches["alex-gh/shop"]["feature"] != "sha-feature" {
@@ -189,7 +199,7 @@ func TestPublishReusesLeftoverProject(t *testing.T) {
 	// An earlier run created the project but stopped before adding origin.
 	h := newHarness(t)
 	h.f.addProject("alex/shop")
-	if err := h.publish(t, WithoutGitHub); err != nil {
+	if err := h.publish(t, WithoutMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if len(h.f.projects) != 1 || h.f.ran("glab api --hostname gitlab.com --method POST projects") != 0 {
@@ -207,7 +217,7 @@ func TestPublishRefusesProjectWithCommits(t *testing.T) {
 	// Another project of the developer's already has the name.
 	h := newHarness(t)
 	h.f.addProject("alex/shop").Empty = false
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	if !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported\n%s", err, h.out)
 	}
@@ -235,7 +245,7 @@ func TestPublishReplacesFailedMirror(t *testing.T) {
 	}
 	// GitHub already has the commits, from before the token broke.
 	h.f.ghBranches["alex-gh/shop"] = h.f.heads()
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	h.noSecret(t, err)
 	if err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
@@ -262,7 +272,7 @@ func TestPublishFreshMirrorNotTriedYet(t *testing.T) {
 	h.f.repos["alex-gh/shop"] = ghRepo{Description: mirrorDescription("https://gitlab.com/alex/shop")}
 	h.f.ghBranches["alex-gh/shop"] = h.f.heads()
 	h.pb.SyncWait = 20 * time.Millisecond
-	if err := h.publish(t, WithGitHub); err != nil {
+	if err := h.publish(t, WithMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if !strings.Contains(h.out.String(), "GitLab hasn't tried the new mirror yet") {
@@ -276,7 +286,7 @@ func TestPublishOtherOrigin(t *testing.T) {
 			h := newHarness(t)
 			h.pb.Forge = forge
 			h.f.origin = "git@bitbucket.org:someone/shop.git"
-			err := h.publish(t, AskGitHub)
+			err := h.publish(t, AskMirror)
 			if !errors.Is(err, ErrReported) {
 				t.Fatalf("Publish() = %v, want ErrReported", err)
 			}
@@ -295,11 +305,11 @@ func TestPublishGitLabForgeGitHubOrigin(t *testing.T) {
 	h := newHarness(t)
 	h.f.origin = "git@github.com:someone/shop.git"
 	h.f.repos["someone/shop"] = ghRepo{}
-	h.pb.Ask = func(context.Context, string) (bool, error) {
+	h.pb.Ask = func(context.Context, string, string) (bool, error) {
 		t.Error("asked about a mirror for a project on GitHub")
 		return true, nil
 	}
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if h.f.ran("glab") != 0 || h.f.ran("gh repo create") != 0 || h.f.ghBranches["someone/shop"]["main"] != "sha-main" {
@@ -310,7 +320,7 @@ func TestPublishGitLabForgeGitHubOrigin(t *testing.T) {
 	h = newHarness(t)
 	h.f.origin = "git@github.com:someone/shop.git"
 	h.f.repos["someone/shop"] = ghRepo{}
-	if err := h.publish(t, WithGitHub); !errors.Is(err, ErrReported) {
+	if err := h.publish(t, WithMirror); !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish(--github) = %v, want ErrReported", err)
 	}
 	if h.f.ran("git push") != 0 || !strings.Contains(h.out.String(), "origin is already on GitHub (someone/shop); --github mirrors a GitLab project") {
@@ -321,7 +331,7 @@ func TestPublishGitLabForgeGitHubOrigin(t *testing.T) {
 func TestPublishNothingCommitted(t *testing.T) {
 	h := newHarness(t)
 	h.f.noCommit = true
-	if err := h.publish(t, WithoutGitHub); !errors.Is(err, ErrReported) {
+	if err := h.publish(t, WithoutMirror); !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}
 	if len(h.f.projects) != 0 {
@@ -332,7 +342,7 @@ func TestPublishNothingCommitted(t *testing.T) {
 func TestPublishRefusesForeignGitHubRepo(t *testing.T) {
 	h := newHarness(t)
 	h.f.repos["alex-gh/shop"] = ghRepo{Description: "my real shop"}
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	if !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}
@@ -361,7 +371,7 @@ func TestPublishExistingUndescribedGitHubRepo(t *testing.T) {
 				h.f.ghBranches["alex-gh/shop"] = tt.branches
 			}
 			h.f.ghEmpty409 = tt.answer409
-			err := h.publish(t, WithGitHub)
+			err := h.publish(t, WithMirror)
 			mirrors := len(h.f.mirrors[h.f.projects["alex/shop"].ID])
 			desc := h.f.repos["alex-gh/shop"].Description
 			if !tt.reuse {
@@ -391,7 +401,7 @@ func TestPublishExistingUndescribedGitHubRepo(t *testing.T) {
 
 func TestPublishWithoutTerminalDoesntMirror(t *testing.T) {
 	h := newHarness(t) // Ask is nil: no terminal
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v\n%s", err, h.out)
 	}
 	if h.f.ran("gh") != 0 {
@@ -405,11 +415,14 @@ func TestPublishWithoutTerminalDoesntMirror(t *testing.T) {
 func TestPublishAsks(t *testing.T) {
 	h := newHarness(t)
 	asked := ""
-	h.pb.Ask = func(_ context.Context, name string) (bool, error) {
+	h.pb.Ask = func(_ context.Context, name, to string) (bool, error) {
+		if to != "GitHub" {
+			t.Errorf("asked about a copy on %s, want GitHub", to)
+		}
 		asked = name
 		return false, nil
 	}
-	if err := h.publish(t, AskGitHub); err != nil {
+	if err := h.publish(t, AskMirror); err != nil {
 		t.Fatalf("Publish() = %v", err)
 	}
 	if asked != "shop" || h.f.ran("gh") != 0 {
@@ -423,7 +436,7 @@ func TestPublishAsks(t *testing.T) {
 func TestPublishRedactsTokenInErrors(t *testing.T) {
 	h := newHarness(t)
 	h.f.echoBody = true
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	if err == nil {
 		t.Fatal("Publish() = nil, want the mirror error")
 	}
@@ -436,7 +449,7 @@ func TestPublishRedactsTokenInErrors(t *testing.T) {
 func TestPublishReportsFailedSync(t *testing.T) {
 	h := newHarness(t)
 	h.f.syncResult, h.f.syncError = statusFailed, "13:Authentication failed for 'https://github.com/alex-gh/shop.git/'"
-	err := h.publish(t, WithGitHub)
+	err := h.publish(t, WithMirror)
 	if !errors.Is(err, ErrReported) {
 		t.Fatalf("Publish() = %v, want ErrReported", err)
 	}

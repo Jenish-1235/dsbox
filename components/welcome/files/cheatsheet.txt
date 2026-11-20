@@ -14,8 +14,9 @@ Projects
 
 GitHub or GitLab (DEVBOX_FORGE; set your own in ~/.devbox/config.env; github when unset)
   ds publish [name]           push to origin; with none, first create a private repo on the forge
-  ds publish --github         gitlab only: also keep a read-only GitHub mirror, no question (--no-github: never)
-  ds mirrors                  gitlab only: every GitHub mirror and its last sync; failures say how to fix them
+  ds publish --github         gitlab: also keep a read-only GitHub mirror, no question (--no-github: never)
+  ds publish --gitlab         github: also keep a GitLab copy that every git push updates (--no-gitlab: never)
+  ds mirrors                  every GitHub mirror or GitLab copy and whether it's in sync; problems say how to fix them
 
 From your laptop (and phone)
   https://<project>.devbox    the app: browser, Postman (http:// works too, e.g. on a phone)

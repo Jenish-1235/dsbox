@@ -1,7 +1,9 @@
 // Package publish puts a project on GitHub or GitLab (DEVBOX_FORGE). A
 // GitLab project can also be mirrored to GitHub: GitLab is then the source of
-// truth, GitHub a read-only copy kept in sync by a GitLab push mirror. It
-// also checks those mirrors and caches the result for the shell's notices.
+// truth, GitHub a read-only copy kept in sync by a GitLab push mirror. A
+// GitHub project can get a copy on GitLab, kept in sync by git push (copy.go).
+// It also checks mirrors and copies and caches the result for the shell's
+// notices.
 package publish
 
 import (

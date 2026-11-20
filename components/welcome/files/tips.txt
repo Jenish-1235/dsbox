@@ -21,6 +21,7 @@ ds d shows your containers grouped by project; c copies a database connection st
 http://dbs.devbox lists running databases with connection strings to copy into DBeaver or .env
 ds publish puts the project you are in on GitHub, or on GitLab with DEVBOX_FORGE=gitlab in ~/.devbox/config.env (ds config shows which)
 with DEVBOX_FORGE=gitlab, ds publish --github also keeps a read-only copy on GitHub; ds mirrors shows whether it is in sync
+with DEVBOX_FORGE=github, ds publish --gitlab also keeps a copy on GitLab, and git push updates both; ds mirrors shows whether it is in sync
 screenshot for Claude: copy it on the laptop, press Ctrl+Alt+V, then Ctrl+V pastes its devbox path into Claude
 ds notify setup sends a phone push when Claude is done or needs you; the terminal already rings
 links are https now: ds cert shows the one-time step to trust the devbox certificate on your laptop

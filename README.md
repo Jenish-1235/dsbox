@@ -51,7 +51,7 @@ The project is called dsbox; on the machine everything is still called devbox
 - **Docker view** (`ds d`): containers grouped by project, with logs, a shell,
   restart, ports, database connection strings and disk use.
 - **Publishing** (`ds publish`): push a project to a new private repository on
-  GitHub or GitLab.
+  GitHub or GitLab, optionally kept in sync on the other one as well.
 - **Upkeep**: `ds update`, `ds rollback`, `ds doctor`, `ds status`,
   `ds config`, `ds cheat`, and a daily update check that only prints a notice.
 - **Resilience**: dev servers come back after a reboot (`ds restore`), a
@@ -164,8 +164,10 @@ ds update / ds rollback     # get or undo devbox improvements
 `DEVBOX_FORGE`: each developer can set their own in `~/.devbox/config.env`,
 otherwise the machine's `config/devbox.env` applies. With `github` (the
 default) it creates a private GitHub repository with `gh` and pushes; nothing
-is stored anywhere. With `gitlab` it creates a private GitLab project and can
-also set up a GitLab push mirror to GitHub. The mirror stores the developer's
+is stored anywhere; a developer logged in to GitLab can also keep a copy there,
+which every `git push` updates (gitlab.com's free plan can't pull from GitHub).
+With `gitlab` it creates a private GitLab project and can also set up a GitLab
+push mirror to GitHub. The mirror stores the developer's
 `gh` token on GitLab, and that token reaches every repository the login can; a
 fine-grained token limited to Contents write on the mirror repository is the
 safer choice. Details: [docs/internals.md](docs/internals.md#publishing-github-or-gitlab).

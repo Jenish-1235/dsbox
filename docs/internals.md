@@ -225,8 +225,9 @@ checks the ones the forge needs.
 
 ```sh
 ds publish [name]          # push to origin; with none, create a private repo on the forge first
-ds publish --github        # gitlab only: mirror to GitHub without asking (--no-github: never)
-ds mirrors                 # gitlab only: every GitHub mirror, its last sync, and a fix for failures
+ds publish --github        # gitlab: mirror to GitHub without asking (--no-github: never)
+ds publish --gitlab        # github: keep a copy on GitLab without asking (--no-gitlab: never)
+ds mirrors                 # every GitHub mirror or GitLab copy, whether it's in sync, and a fix
 ```
 
 `ds publish` works on the project you're in (or `name`). Whatever the forge,
@@ -239,8 +240,18 @@ With `github`:
 - No `origin`: creates a private repo `<gh user>/<name>` (or reuses an empty
   one of that name; one with branches stops it), adds it as `origin` in the
   protocol `gh` is set to use, and pushes every branch and tag; `main`
-  becomes the default branch. There's no mirror, so `--github` and
-  `--no-github` are refused.
+  becomes the default branch. Then, if `glab` is logged in, it asks "Copy to
+  GitLab? (y/N)". `--github` and `--no-github` are refused.
+- Copy on GitLab: gitlab.com's free plan can't pull from GitHub, so the copy
+  is kept by `git push`. `ds publish` creates a private project
+  `<glab user>/<repo name>` described as `Copy of https://github.com/<repo>`
+  (an existing one is used only if it's this repo's copy or is empty with no
+  description), pushes every branch and tag to it, and adds it as a second
+  push URL of `origin` (after GitHub's own). From then on every `git push`
+  from that clone updates both, and `ds publish` pushes to both. Changes made
+  on GitHub itself (a merged pull request, an edit on the website) reach GitLab
+  with the next `git pull` and `git push`. No token is stored; it uses the
+  `glab` login. To stop: `git remote set-url --delete --push origin <gitlab URL>`.
 
 With `gitlab`, GitLab is the source of truth and GitHub an optional read-only
 mirror:
@@ -276,4 +287,9 @@ The daily `devbox-check-updates` service also runs `ds check-mirrors`, which
 writes `~/.devbox/state/mirrors.json`; `ds notices` then prints e.g.
 `! mirror shop → GitHub failing since 2d → ds mirrors`. `ds publish` and
 `ds mirrors` refresh the file too, so a fixed mirror stops the notice at once.
-With `github`, `ds check-mirrors`, `ds mirrors` and the notices do nothing.
+With `github`, `ds mirrors` and `ds check-mirrors` instead list the
+developer's GitLab projects described as copies and compare their branches
+with GitHub's (no `glab` login: nothing to check). A copy that differs gives
+`! GitLab copy of shop differs from GitHub since 2d → ds mirrors`; `git pull`
+then `git push` in the project fixes it. `ds doctor` checks the `glab` login
+once a copy exists, and before that only says it's needed for copies.

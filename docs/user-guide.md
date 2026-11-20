@@ -107,8 +107,10 @@ keeps a copy in `~/.devbox/adlc`. Personal templates go in
 
 `ds publish` in a project (or `ds publish <name>`) creates a private
 repository and pushes the project to it. `DEVBOX_FORGE` decides where:
-`github` (the default) uses the `gh` login; `gitlab` uses the `glab` login and
-can also mirror the project to GitHub. To choose for yourself, put
+`github` (the default) uses the `gh` login and, if you're logged in to
+GitLab, can also keep a copy there that every `git push` updates; `gitlab`
+uses the `glab` login and can also mirror the project to GitHub. `ds mirrors`
+shows whether the copies are in sync. To choose for yourself, put
 `DEVBOX_FORGE=gitlab` (or `github`) in `~/.devbox/config.env`; `ds config`
 shows the setting in effect. Log in to `gh` (and
 `glab`, for GitLab) once first: see [laptop-setup.md](laptop-setup.md#7-logins-on-the-devbox).

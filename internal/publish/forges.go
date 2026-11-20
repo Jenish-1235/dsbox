@@ -27,6 +27,7 @@ type glProject struct {
 	HTTPURL       string `json:"http_url_to_repo"`
 	SSHURL        string `json:"ssh_url_to_repo"`
 	DefaultBranch string `json:"default_branch"`
+	Description   string `json:"description"`
 	Archived      bool   `json:"archived"`
 	// Empty is true while the project has no commits.
 	Empty bool `json:"empty_repo"`
@@ -142,14 +143,41 @@ func (g gitLab) project(ctx context.Context, path string) (glProject, error) {
 }
 
 // createProject creates a private project in their own namespace.
-func (g gitLab) createProject(ctx context.Context, name string) (glProject, error) {
+func (g gitLab) createProject(ctx context.Context, name, description string) (glProject, error) {
+	body := map[string]any{"name": name, "path": name, "visibility": "private"}
+	if description != "" {
+		body["description"] = description
+	}
 	var p glProject
-	err := g.api(ctx, "POST", "projects", map[string]any{
-		"name":       name,
-		"path":       name,
-		"visibility": "private",
-	}, &p)
+	err := g.api(ctx, "POST", "projects", body, &p)
 	return p, err
+}
+
+func (g gitLab) setDescription(ctx context.Context, id int, description string) error {
+	return g.api(ctx, "PUT", fmt.Sprintf("projects/%d", id), map[string]any{"description": description}, nil)
+}
+
+// branches lists a project's branches (name → commit).
+func (g gitLab) branches(ctx context.Context, id int) (map[string]string, error) {
+	endpoint := fmt.Sprintf("projects/%d/repository/branches?per_page=100", id)
+	res, err := g.output(ctx, nil, "api", "--hostname", g.host, "--paginate", endpoint)
+	if err != nil {
+		return nil, apiError("list gitlab branches", err)
+	}
+	var all []struct {
+		Name   string `json:"name"`
+		Commit struct {
+			ID string `json:"id"`
+		} `json:"commit"`
+	}
+	if err := decodePages(res, &all); err != nil {
+		return nil, fmt.Errorf("parse gitlab branches: %w", err)
+	}
+	heads := make(map[string]string, len(all))
+	for _, b := range all {
+		heads[b.Name] = b.Commit.ID
+	}
+	return heads, nil
 }
 
 func (g gitLab) setDefaultBranch(ctx context.Context, id int, branch string) error {

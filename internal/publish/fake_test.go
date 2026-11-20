@@ -53,6 +53,12 @@ type fake struct {
 	ghEmpty409 bool
 	// ghProtocol is what gh config get git_protocol prints.
 	ghProtocol string
+	// pushURLs are origin's push URLs (git config remote.origin.pushurl).
+	pushURLs []string
+	// glBranches are each GitLab project's branches (name → commit), by path.
+	glBranches map[string]map[string]string
+	// glSignedOut makes glab auth status fail.
+	glSignedOut bool
 
 	calls []call
 }
@@ -68,6 +74,7 @@ func newFake() *fake {
 		syncResult: statusFinished,
 		forbidden:  map[int]bool{},
 		ghBranches: map[string]map[string]string{},
+		glBranches: map[string]map[string]string{},
 		ghProtocol: "https",
 	}
 }
@@ -145,6 +152,16 @@ func (f *fake) git(args []string) (string, error) {
 	case "remote add":
 		f.origin = args[3]
 		return "", nil
+	case "remote set-url":
+		if len(args) == 6 && args[2] == "--add" && args[3] == "--push" && args[4] == "origin" {
+			f.pushURLs = append(f.pushURLs, args[5])
+			return "", nil
+		}
+	case "config --get-all":
+		if len(f.pushURLs) == 0 {
+			return "", errors.New("git config: exit status 1")
+		}
+		return strings.Join(f.pushURLs, "\n"), nil
 	case "for-each-ref --format=%(refname:short) %(objectname)":
 		var heads []string
 		for b, sha := range f.heads() {
@@ -154,20 +171,20 @@ func (f *fake) git(args []string) (string, error) {
 	case "for-each-ref --format=%(refname:short)":
 		return "", nil // no tags
 	case "push --quiet":
-		for _, p := range f.projects {
-			if f.origin == p.HTTPURL || f.origin == p.SSHURL {
-				p.Empty = false
+		target := args[2]
+		if target == "-u" {
+			target = args[3]
+		}
+		urls := []string{target}
+		if target == "origin" {
+			urls = f.pushURLs
+			if len(urls) == 0 {
+				urls = []string{f.origin}
 			}
 		}
-		if o := classifyOrigin(f.origin, DefaultHost); o.kind == gitHubOrigin {
-			if _, ok := f.repos[o.path]; !ok {
-				return "", errors.New("git push: exit status 128: remote: Repository not found")
-			}
-			f.ghBranches[o.path] = f.heads()
-			// An empty repo takes the first branch that arrives as its default.
-			if r := f.repos[o.path]; r.DefaultBranch == "" {
-				r.DefaultBranch = f.branches[0]
-				f.repos[o.path] = r
+		for _, u := range urls {
+			if err := f.pushTo(u); err != nil {
+				return "", err
 			}
 		}
 		return "", nil
@@ -175,9 +192,40 @@ func (f *fake) git(args []string) (string, error) {
 	return "", fmt.Errorf("fake git: unexpected %q", args)
 }
 
+// pushTo receives the local branches at url, on the fake GitLab or GitHub.
+func (f *fake) pushTo(url string) error {
+	for path, p := range f.projects {
+		if url == p.HTTPURL || url == p.SSHURL {
+			p.Empty = false
+			f.glBranches[path] = f.heads()
+			if p.DefaultBranch == "" {
+				p.DefaultBranch = f.branches[0]
+			}
+		}
+	}
+	if o := classifyOrigin(url, DefaultHost); o.kind == gitHubOrigin {
+		if _, ok := f.repos[o.path]; !ok {
+			return errors.New("git push: exit status 128: remote: Repository not found")
+		}
+		f.ghBranches[o.path] = f.heads()
+		// An empty repo takes the first branch that arrives as its default.
+		if r := f.repos[o.path]; r.DefaultBranch == "" {
+			r.DefaultBranch = f.branches[0]
+			f.repos[o.path] = r
+		}
+	}
+	return nil
+}
+
 func (f *fake) glab(args []string, stdin []byte) (string, error) {
 	if len(args) >= 2 && args[0] == "config" {
 		return "https", nil
+	}
+	if len(args) >= 2 && args[0] == "auth" && args[1] == "status" {
+		if f.glSignedOut {
+			return "", errors.New("glab auth status: exit status 1: not logged in")
+		}
+		return "", nil
 	}
 	if f.limited > 0 {
 		f.limited--
@@ -231,7 +279,29 @@ func (f *fake) glab(args []string, stdin []byte) (string, error) {
 		return string(a) + string(b), nil
 	case endpoint == "projects" && method == "POST":
 		p := f.addProject(f.user + "/" + body["path"].(string))
+		if d, ok := body["description"].(string); ok {
+			p.Description = d
+		}
 		return reply(p)
+	case len(parts) == 4 && parts[2] == "repository" && strings.HasPrefix(parts[3], "branches"):
+		type branch struct {
+			Name   string `json:"name"`
+			Commit struct {
+				ID string `json:"id"`
+			} `json:"commit"`
+		}
+		list := []branch{}
+		for _, p := range f.projects {
+			if strconv.Itoa(p.ID) != parts[1] {
+				continue
+			}
+			for name, sha := range f.glBranches[p.PathWithNS] {
+				b := branch{Name: name}
+				b.Commit.ID = sha
+				list = append(list, b)
+			}
+		}
+		return reply(list)
 	case len(parts) == 2 && method == "GET":
 		path, _ := url.QueryUnescape(parts[1])
 		if p, ok := f.projects[path]; ok {
@@ -246,7 +316,12 @@ func (f *fake) glab(args []string, stdin []byte) (string, error) {
 	case len(parts) == 2 && method == "PUT":
 		for _, p := range f.projects {
 			if strconv.Itoa(p.ID) == parts[1] {
-				p.DefaultBranch = body["default_branch"].(string)
+				if b, ok := body["default_branch"].(string); ok {
+					p.DefaultBranch = b
+				}
+				if d, ok := body["description"].(string); ok {
+					p.Description = d
+				}
 				return reply(p)
 			}
 		}

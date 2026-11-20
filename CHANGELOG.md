@@ -8,6 +8,10 @@
 - `just state-backup <env>` (also run by `just infra-apply`): copies the state
   to a private, versioned S3 bucket in the devbox's account, as Glacier
   Instant Retrieval.
+- `ds publish --gitlab` (DEVBOX_FORGE=github): keeps a copy of a GitHub
+  project on GitLab, updated by every `git push` (a second push URL on
+  origin). Developers logged in to GitLab are asked; `ds mirrors`, the daily
+  check and `ds doctor` cover copies too.
 - `dsbox-setup` agent skill for Claude Code: guides creating, provisioning and
   connecting a devbox from this repository.
 - `provision/`: idempotent machine setup with `--check`; `--user` names the

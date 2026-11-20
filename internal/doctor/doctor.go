@@ -313,11 +313,12 @@ func servicesSection(ctx context.Context, l layout.Layout) Section {
 
 	s.Results = append(s.Results, phonePushResult(l))
 
+	forge := devproj.LoadSettings(l).Forge
 	mirrors := false
 	if st, _, err := publish.LoadStatus(l.MirrorsFile()); err == nil {
-		mirrors = len(st.Mirrors) > 0
+		mirrors = len(st.For(forge).Mirrors) > 0
 	}
-	for _, lg := range logins(devproj.LoadSettings(l).Forge, mirrors) {
+	for _, lg := range logins(forge, mirrors) {
 		s.Results = append(s.Results, judgeLogin(lg, sysexec.Shell(quick, lg.cmd+" >/dev/null 2>&1")))
 	}
 	return s
@@ -330,18 +331,23 @@ type login struct {
 	optional string
 }
 
-// logins are the sign-ins the forge (DEVBOX_FORGE) needs: gh for github;
-// glab for gitlab, plus gh while a GitHub mirror exists (mirrors). Without
-// one, gh is only needed to add a mirror.
+// logins are the sign-ins the forge (DEVBOX_FORGE) needs: gh for github,
+// plus glab while a GitLab copy exists; glab for gitlab, plus gh while a
+// GitHub mirror exists (mirrors says whether one does). Without one, the
+// other login is only needed to add one.
 func logins(forge string, mirrors bool) []login {
 	gh := login{name: "github (gh)", cmd: "gh auth status", fix: "gh auth login"}
+	glab := login{name: "gitlab (glab)", cmd: "glab auth status", fix: "glab auth login"}
 	if forge != config.ForgeGitLab {
-		return []login{gh}
+		if !mirrors {
+			glab.optional = "only needed for GitLab copies (ds publish --gitlab)"
+		}
+		return []login{gh, glab}
 	}
 	if !mirrors {
 		gh.optional = "only needed for GitHub mirrors (ds publish --github)"
 	}
-	return []login{{name: "gitlab (glab)", cmd: "glab auth status", fix: "glab auth login"}, gh}
+	return []login{glab, gh}
 }
 
 // judgeLogin warns about a needed login that's signed out; an optional one

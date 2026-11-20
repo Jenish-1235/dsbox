@@ -19,20 +19,30 @@ type Project struct {
 	Dir  string
 }
 
-// GitHubChoice says whether to mirror a GitLab project to GitHub.
-type GitHubChoice int
+// MirrorChoice says whether to keep a copy of the project on the other
+// forge: a GitLab project's mirror on GitHub (kept by GitLab), or a GitHub
+// project's copy on GitLab (kept by git push).
+type MirrorChoice int
 
 const (
-	// AskGitHub asks when Publisher.Ask is set, and otherwise doesn't mirror.
-	AskGitHub GitHubChoice = iota
-	// WithGitHub mirrors to GitHub without asking (--github).
-	WithGitHub
-	// WithoutGitHub never mirrors (--no-github).
-	WithoutGitHub
+	// AskMirror asks when Publisher.Ask is set, and otherwise doesn't copy.
+	AskMirror MirrorChoice = iota
+	// WithMirror copies without asking (--github, --gitlab).
+	WithMirror
+	// WithoutMirror never copies (--no-github, --no-gitlab).
+	WithoutMirror
 )
 
-// Publisher puts projects on GitHub, or on GitLab with an optional mirror to
-// GitHub. The zero value of every field but Run and Out is usable.
+// Flags are ds publish's flags: Choice, and To, the forge the flag names
+// (config.ForgeGitHub for --github and --no-github, config.ForgeGitLab for
+// --gitlab and --no-gitlab; "" without a flag).
+type Flags struct {
+	Choice MirrorChoice
+	To     string
+}
+
+// Publisher puts projects on GitHub or GitLab, with an optional copy on the
+// other one. The zero value of every field but Run and Out is usable.
 type Publisher struct {
 	Run Runner
 	Out ui.Printer
@@ -41,9 +51,9 @@ type Publisher struct {
 	Forge string
 	// Host is the GitLab host; "" means DefaultHost.
 	Host string
-	// Ask asks whether to mirror to repo ("owner/name" is unknown yet, so it
-	// gets the project name). nil means there's no one to ask.
-	Ask func(ctx context.Context, name string) (bool, error)
+	// Ask asks whether to keep a copy of the project name on the forge to
+	// ("GitHub" or "GitLab"). nil means there's no one to ask.
+	Ask func(ctx context.Context, name, to string) (bool, error)
 	// StatusFile, when set, gets the mirror's result (see Status).
 	StatusFile string
 	// SyncWait is how long to wait for the first sync (90s); PollEvery how
@@ -59,18 +69,21 @@ func mirrorDescription(gitlabURL string) string {
 }
 
 // Publish pushes p to its origin on GitLab or GitHub. Without an origin it
-// creates a private repo on the configured forge first. A GitLab project can
-// also be mirrored to GitHub, if chosen. Running it again reuses what exists.
-func (pb Publisher) Publish(ctx context.Context, p Project, choice GitHubChoice) error {
+// creates a private repo on the configured forge first. A project on the
+// configured forge can also get a copy on the other one, if chosen: GitLab
+// mirrors to GitHub, and a GitHub project's git push also goes to GitLab.
+// Running it again reuses what exists.
+func (pb Publisher) Publish(ctx context.Context, p Project, f Flags) error {
 	forge := cmp.Or(pb.Forge, config.ForgeGitHub)
 	switch {
 	case forge != config.ForgeGitHub && forge != config.ForgeGitLab:
 		pb.Out.Fail("%s is %q; it must be github or gitlab", config.Forge, forge)
 		pb.Out.Hint("fix config/devbox.env in the repo, then %s", config.Fix)
 		return ErrReported
-	case forge == config.ForgeGitHub && choice != AskGitHub:
-		pb.Out.Fail("--github and --no-github only apply when %s=gitlab", config.Forge)
-		pb.Out.Hint("here it's github: ds publish pushes to GitHub itself, with no mirror")
+	case f.To != "" && f.To == forge:
+		pb.Out.Fail("--%s and --no-%s only apply when %s=%s", f.To, f.To, config.Forge, otherForge(f.To))
+		pb.Out.Hint("here it's %s: ds publish pushes to %s itself; --%s adds a copy on %s",
+			forge, forgeName(forge), otherForge(forge), forgeName(otherForge(forge)))
 		return ErrReported
 	}
 	host := cmp.Or(pb.Host, DefaultHost)
@@ -98,27 +111,55 @@ func (pb Publisher) Publish(ctx context.Context, p Project, choice GitHubChoice)
 	}
 
 	o := classifyOrigin(raw, host)
-	switch {
-	case o.kind == otherOrigin:
+	if o.kind == otherOrigin {
 		pb.Out.Fail("origin is %s, which is on neither %s nor %s", raw, host, gitHubHost)
 		pb.Out.Hint("ds publish pushes to GitLab or GitHub; to move: git remote rename origin old-origin, then ds publish")
 		return ErrReported
-	case o.kind == gitHubOrigin && choice == WithGitHub:
-		pb.Out.Fail("origin is already on GitHub (%s); --github mirrors a GitLab project", o.path)
+	}
+	dest := config.ForgeGitLab
+	if o.kind == gitHubOrigin || (o.kind == noOrigin && forge == config.ForgeGitHub) {
+		dest = config.ForgeGitHub
+	}
+	choice := f.Choice
+	switch {
+	case f.To != "" && f.To == dest:
+		verb := "mirrors" // --github: GitLab mirrors to GitHub
+		if f.To == config.ForgeGitLab {
+			verb = "copies"
+		}
+		pb.Out.Fail("origin is already on %s (%s); --%s %s a %s project", forgeName(dest), o.path, f.To, verb, forgeName(otherForge(dest)))
 		pb.Out.Hint("ds publish pushes to it")
 		return ErrReported
-	case o.kind == gitHubOrigin || (o.kind == noOrigin && forge == config.ForgeGitHub):
-		return pb.publishGitHub(ctx, p, o)
-	case forge == config.ForgeGitHub:
-		// A GitLab origin when GitHub is the forge: push, never mirror.
-		choice = WithoutGitHub
+	case dest != forge:
+		// A project on the other forge: push, never copy.
+		choice = WithoutMirror
+	}
+	if dest == config.ForgeGitHub {
+		return pb.publishGitHub(ctx, p, o, host, choice)
 	}
 	return pb.publishGitLab(ctx, p, o, host, choice)
 }
 
+// otherForge is gitlab for github and github for gitlab.
+func otherForge(forge string) string {
+	if forge == config.ForgeGitLab {
+		return config.ForgeGitHub
+	}
+	return config.ForgeGitLab
+}
+
+// forgeName is how messages name a forge.
+func forgeName(forge string) string {
+	if forge == config.ForgeGitLab {
+		return "GitLab"
+	}
+	return "GitHub"
+}
+
 // publishGitHub pushes to the GitHub repo origin points at or, with no
-// origin, to <gh user>/<name>, created private when it doesn't exist.
-func (pb Publisher) publishGitHub(ctx context.Context, p Project, o origin) error {
+// origin, to <gh user>/<name>, created private when it doesn't exist. It then
+// adds a copy on GitLab if choice (or the developer's answer) says so.
+func (pb Publisher) publishGitHub(ctx context.Context, p Project, o origin, host string, choice MirrorChoice) error {
 	hub := gitHub{run: pb.Run}
 	user, err := hub.login(ctx)
 	if err != nil {
@@ -143,7 +184,14 @@ func (pb Publisher) publishGitHub(ctx context.Context, p Project, o origin) erro
 		return err
 	}
 
-	branches, err := pb.push(ctx, p.Dir, full)
+	// A copy on GitLab is a second push URL on origin, so this push updates
+	// it too.
+	copyPath := pb.gitLabCopy(ctx, p.Dir, host)
+	where := full
+	if copyPath != "" {
+		where += " and " + host + "/" + copyPath
+	}
+	branches, err := pb.push(ctx, p.Dir, where)
 	if err != nil {
 		return err
 	}
@@ -155,8 +203,16 @@ func (pb Publisher) publishGitHub(ctx context.Context, p Project, o origin) erro
 			}
 		}
 	}
-	pb.Out.Text("GitHub  https://%s/%s", gitHubHost, full)
-	return nil
+	if copyPath != "" {
+		pb.record(copyStatus(host, copyPath, full))
+		pb.Out.Text("GitHub  https://%s/%s", gitHubHost, full)
+		pb.Out.Text("GitLab  https://%s/%s  %s", host, copyPath, pb.Out.Dim("(copy; git push updates both)"))
+		if choice == WithoutMirror {
+			pb.Out.Hint("already copied to GitLab; git remote set-url --delete --push origin %s stops it", copyPath)
+		}
+		return nil
+	}
+	return pb.offerCopy(ctx, p, full, host, choice, branches)
 }
 
 // ensureRepo finds full on GitHub (left empty by an earlier run) or creates
@@ -193,7 +249,7 @@ func (pb Publisher) ensureRepo(ctx context.Context, hub gitHub, full string) (bo
 // publishGitLab pushes to the GitLab project origin points at or, with no
 // origin, to <glab user>/<name>, created private when it doesn't exist. It
 // then mirrors the project to GitHub if choice (or the developer's answer) says so.
-func (pb Publisher) publishGitLab(ctx context.Context, p Project, o origin, host string, choice GitHubChoice) error {
+func (pb Publisher) publishGitLab(ctx context.Context, p Project, o origin, host string, choice MirrorChoice) error {
 	gl := gitLab{run: pb.Run, host: host}
 	var (
 		proj    glProject
@@ -233,13 +289,13 @@ func (pb Publisher) publishGitLab(ctx context.Context, p Project, o origin, host
 		}
 	}
 
-	mirror, asked, err := pb.decide(ctx, p.Name, choice)
+	mirror, asked, err := pb.decide(ctx, p.Name, "GitHub", choice)
 	if err != nil {
 		return err
 	}
 	if !mirror {
 		pb.Out.Text("GitLab  %s", proj.WebURL)
-		if !asked && choice == AskGitHub {
+		if !asked && choice == AskMirror {
 			pb.Out.Hint("not mirrored to GitHub; ds publish --github adds the mirror")
 		}
 		return nil
@@ -297,7 +353,7 @@ func (pb Publisher) ensureProject(ctx context.Context, gl gitLab, name string) (
 	if !errors.Is(err, ErrNotFound) {
 		return glProject{}, false, err
 	}
-	if proj, err = gl.createProject(ctx, name); err != nil {
+	if proj, err = gl.createProject(ctx, name, ""); err != nil {
 		return glProject{}, false, err
 	}
 	pb.Out.OK("Created GitLab project %s (private)", proj.PathWithNS)
@@ -312,15 +368,16 @@ func (pb Publisher) cloneURL(ctx context.Context, host string, proj glProject) s
 	return proj.HTTPURL
 }
 
-// decide applies the flag, or asks. asked is true when the developer was asked.
-func (pb Publisher) decide(ctx context.Context, name string, choice GitHubChoice) (mirror, asked bool, err error) {
+// decide applies the flag, or asks about a copy on to ("GitHub" or
+// "GitLab"). asked is true when the developer was asked.
+func (pb Publisher) decide(ctx context.Context, name, to string, choice MirrorChoice) (mirror, asked bool, err error) {
 	switch {
-	case choice == WithGitHub:
+	case choice == WithMirror:
 		return true, false, nil
-	case choice == WithoutGitHub || pb.Ask == nil:
+	case choice == WithoutMirror || pb.Ask == nil:
 		return false, false, nil
 	}
-	yes, err := pb.Ask(ctx, name)
+	yes, err := pb.Ask(ctx, name, to)
 	if err != nil {
 		return false, true, err
 	}

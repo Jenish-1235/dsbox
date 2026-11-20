@@ -65,9 +65,12 @@ func TestLogins(t *testing.T) {
 		signedIn bool
 		want     []string // "name level detail" per login
 	}{
-		{"github signed in", "github", false, true, []string{"github (gh) 0 signed in"}},
-		{"github signed out", "github", false, false, []string{"github (gh) 1 signed out"}},
-		{"github ignores old mirrors", "github", true, false, []string{"github (gh) 1 signed out"}},
+		{"github signed in", "github", false, true, []string{"github (gh) 0 signed in", "gitlab (glab) 0 signed in"}},
+		{"github without copies", "github", false, false, []string{
+			"github (gh) 1 signed out",
+			"gitlab (glab) 0 signed out; only needed for GitLab copies (ds publish --gitlab)",
+		}},
+		{"github with copies", "github", true, false, []string{"github (gh) 1 signed out", "gitlab (glab) 1 signed out"}},
 		{"gitlab without mirrors", "gitlab", false, false, []string{
 			"gitlab (glab) 1 signed out",
 			"github (gh) 0 signed out; only needed for GitHub mirrors (ds publish --github)",

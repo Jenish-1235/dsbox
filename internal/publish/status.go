@@ -14,14 +14,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jenish-1235/dsbox/internal/config"
 	"github.com/Jenish-1235/dsbox/internal/ui"
 )
 
 // DefaultHost is the GitLab host the developer's projects live on.
 const DefaultHost = "gitlab.com"
 
-// Mirror is one GitLab project's push mirror to GitHub.
+// Mirror is one GitLab project's push mirror to GitHub or, with Kind
+// KindCopy, a GitHub project's copy on GitLab.
 type Mirror struct {
+	Kind string `json:"kind,omitempty"`
 	// Project is the GitLab project path, e.g. "alex/shop"; Name is its last part.
 	Project   string `json:"project"`
 	Name      string `json:"name"`
@@ -35,8 +38,14 @@ type Mirror struct {
 	LastError     string    `json:"last_error,omitempty"`
 }
 
-// Failed reports whether the mirror's last update failed (see failing).
-func (m Mirror) Failed() bool { return failing(m.Status, m.LastError) }
+// Failed reports whether the mirror's last update failed (see failing), or
+// the copy isn't the same as GitHub.
+func (m Mirror) Failed() bool {
+	if m.Kind == KindCopy {
+		return m.Status != statusInSync
+	}
+	return failing(m.Status, m.LastError)
+}
 
 func newMirror(p glProject, m remoteMirror, github string) Mirror {
 	return Mirror{
@@ -96,9 +105,25 @@ func (s Status) Save(path string) error {
 	return nil
 }
 
+// For keeps what the forge has: copies on GitLab for github, mirrors to
+// GitHub for gitlab. A forge switch leaves the other kind in the cache.
+func (s Status) For(forge string) Status {
+	copies := forge != config.ForgeGitLab
+	out := s
+	out.Mirrors = nil
+	for _, m := range s.Mirrors {
+		if (m.Kind == KindCopy) == copies {
+			out.Mirrors = append(out.Mirrors, m)
+		}
+	}
+	return out
+}
+
 // upsert replaces the entry for m's project and target, or adds it.
 func (s *Status) upsert(m Mirror) {
-	i := slices.IndexFunc(s.Mirrors, func(o Mirror) bool { return o.Project == m.Project && o.GitHub == m.GitHub })
+	i := slices.IndexFunc(s.Mirrors, func(o Mirror) bool {
+		return o.Kind == m.Kind && o.Project == m.Project && o.GitHub == m.GitHub
+	})
 	if i >= 0 {
 		s.Mirrors[i] = m
 		return
@@ -247,6 +272,9 @@ func Notices(s Status, now time.Time) []string {
 		}
 	}
 	if len(failed) > 2 {
+		if failed[0].Kind == KindCopy {
+			return []string{fmt.Sprintf("%d GitLab copies differ from GitHub → ds mirrors", len(failed))}
+		}
 		return []string{fmt.Sprintf("%d mirrors → GitHub failing → ds mirrors", len(failed))}
 	}
 	var out []string
@@ -254,6 +282,10 @@ func Notices(s Status, now time.Time) []string {
 		since := ""
 		if !m.LastSuccessAt.IsZero() {
 			since = " since " + short(now.Sub(m.LastSuccessAt))
+		}
+		if m.Kind == KindCopy {
+			out = append(out, fmt.Sprintf("GitLab copy of %s differs from GitHub%s → ds mirrors", m.Name, since))
+			continue
 		}
 		out = append(out, fmt.Sprintf("mirror %s → GitHub failing%s → ds mirrors", m.Name, since))
 	}
