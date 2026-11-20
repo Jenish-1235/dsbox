@@ -79,9 +79,14 @@ infra-init:
 infra-plan env:
     cd infra && tofu workspace select -or-create {{ env }} && tofu plan -var-file="{{ ops }}/envs/{{ env }}.tfvars" -out="{{ ops }}/{{ env }}.tfplan"
 
-# Apply the plan saved by infra-plan (review it first): just infra-apply alex
+# Apply the plan saved by infra-plan (review it first), then back up the state: just infra-apply alex
 infra-apply env:
     cd infra && tofu workspace select {{ env }} && tofu apply "{{ ops }}/{{ env }}.tfplan"
+    just state-backup {{ env }}
+
+# Copy a devbox's state to S3 (Glacier Instant Retrieval) in its own AWS account
+state-backup env:
+    DEVBOX_ENV={{ env }} DEVBOX_OPS="{{ ops }}" scripts/state-backup.sh
 
 # Tag a release once CHANGELOG.md has a section for it
 release version:

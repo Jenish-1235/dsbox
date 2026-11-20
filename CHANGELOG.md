@@ -5,6 +5,9 @@
 - First public release of dsbox, under the MIT licence.
 - `infra/`: OpenTofu for one devbox per workspace, with per-devbox values and
   state in a private ops folder (`$DEVBOX_OPS`, default `.ops/`).
+- `just state-backup <env>` (also run by `just infra-apply`): copies the state
+  to a private, versioned S3 bucket in the devbox's account, as Glacier
+  Instant Retrieval.
 - `provision/`: idempotent machine setup with `--check`; `--user` names the
   developer's account on a fresh machine.
 - `ds`: projects from templates with stable ports and `<project>.devbox` links

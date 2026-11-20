@@ -30,7 +30,17 @@ $DEVBOX_OPS/
 ```
 
 The state is the only record of what OpenTofu created. Keep the folder
-somewhere private and backed up, for example a private git repository.
+somewhere private and backed up. `just infra-apply` also copies the devbox's
+state to S3 in that devbox's own account (`just state-backup <name>` does it
+on its own):
+
+- Bucket `devbox-state-<account id>` (or `DEVBOX_STATE_BUCKET`), created on
+  first use: private, encrypted, TLS only, versioned.
+- The object is `<name>/terraform.tfstate`, stored as Glacier Instant
+  Retrieval. Older copies stay as versions: the newest 20 are kept, and
+  others are deleted after 90 days.
+- To restore, copy it back:
+  `aws s3 cp s3://devbox-state-<account id>/<name>/terraform.tfstate "$DEVBOX_OPS/state/terraform.tfstate.d/<name>/terraform.tfstate"`
 
 ## Creating a devbox
 
@@ -66,7 +76,7 @@ The file name is the devbox name, which is also the OpenTofu workspace.
 ```sh
 just infra-init           # once per checkout: points OpenTofu at $DEVBOX_OPS/state
 just infra-plan alex      # selects or creates the workspace, saves a plan
-just infra-apply alex     # applies that saved plan
+just infra-apply alex     # applies that saved plan, then backs up the state
 ```
 
 This creates the instance (latest Ubuntu 24.04 AMI, IMDSv2 only, termination
