@@ -8,6 +8,8 @@
 - `just state-backup <env>` (also run by `just infra-apply`): copies the state
   to a private, versioned S3 bucket in the devbox's account, as Glacier
   Instant Retrieval.
+- `dsbox-setup` agent skill for Claude Code: guides creating, provisioning and
+  connecting a devbox from this repository.
 - `provision/`: idempotent machine setup with `--check`; `--user` names the
   developer's account on a fresh machine.
 - `ds`: projects from templates with stable ports and `<project>.devbox` links

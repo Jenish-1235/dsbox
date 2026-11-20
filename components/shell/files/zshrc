@@ -1,5 +1,5 @@
 # ~/.zshrc — devbox shell.
-# Managed by devbox (ds update); source: devbox-setup/components/shell/files/zshrc.
+# Managed by devbox (ds update); source: dsbox/components/shell/files/zshrc.
 # Personal tweaks go in ~/.zshrc.local, which updates never touch.
 
 # --- PATH & runtimes ---------------------------------------------------------

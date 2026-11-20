@@ -81,6 +81,11 @@ The full procedure, with rebuilds, updates and costs, is in
 [docs/operator-guide.md](docs/operator-guide.md). The examples use a devbox
 named `alex` for a developer whose Linux user name is also `alex`.
 
+With [Claude Code](https://claude.com/claude-code), run `claude` in this
+repository and ask it to set up a devbox: the `dsbox-setup` skill
+(`.claude/skills/dsbox-setup/`) walks through these steps, runs the checks,
+and stops for anything that costs money or needs a login.
+
 1. **Describe the devbox.** Per-devbox values live in a private ops folder,
    `$DEVBOX_OPS`, set in the environment or in a `.env` file in the repo root.
    The default is `.ops/` in the repo, which is gitignored.

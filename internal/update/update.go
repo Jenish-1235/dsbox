@@ -1,4 +1,4 @@
-// Package update moves the machine to a version of devbox-setup: it pulls the
+// Package update moves the machine to a version of dsbox: it pulls the
 // source, rebuilds ds and dev, and applies every component. It also rolls back.
 package update
 

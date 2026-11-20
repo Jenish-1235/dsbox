@@ -34,7 +34,7 @@ func FromEnv() (Layout, error) {
 	return Layout{Home: home, Root: root, Etc: etc}, nil
 }
 
-// Src is the clone of the devbox-setup repo.
+// Src is the clone of the dsbox repo.
 func (l Layout) Src() string { return filepath.Join(l.Root, "src") }
 
 // Bin holds ds and the other devbox commands. It is on PATH.

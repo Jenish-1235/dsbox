@@ -4,7 +4,8 @@
 *.tfplan
 crash.log
 /bin/
-.claude/
+.claude/*
+!.claude/skills/
 .DS_Store
 .go/
 .cache/

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh — set up devbox for the current user. Safe to rerun.
 #
-# Clones devbox-setup into ~/.devbox/src (or uses the clone already there),
+# Clones dsbox into ~/.devbox/src (or uses the clone already there),
 # builds ds and dev into ~/.devbox/bin, and applies every component.
 set -euo pipefail
 
@@ -26,7 +26,7 @@ mkdir -p "$root"/{bin,state,logs,backups,templates}
 if [ -d "$src/.git" ]; then
   say "Using the existing clone in $src"
 else
-  say "Cloning devbox-setup into $src"
+  say "Cloning dsbox into $src"
   git clone --quiet "$repo" "$src"
 fi
 

@@ -14,7 +14,7 @@ import (
 
 // State is persisted as JSON in ~/.devbox/state/ds.json.
 type State struct {
-	// Current is the commit of devbox-setup that is applied.
+	// Current is the commit of dsbox that is applied.
 	Current string `json:"current"`
 	// Previous is the commit before the last update or rollback.
 	Previous string `json:"previous"`
