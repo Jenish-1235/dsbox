@@ -73,6 +73,10 @@ func (l Layout) MirrorsFile() string { return filepath.Join(l.StateDir(), "mirro
 // Inbox holds screenshots uploaded from the laptop (devbox-paste), kept a week.
 func (l Layout) Inbox() string { return filepath.Join(l.Root, "inbox") }
 
+// Artifacts holds the HTML artifacts shown on https://artifacts.<apps domain>
+// (ds artifact submit).
+func (l Layout) Artifacts() string { return filepath.Join(l.Root, "artifacts") }
+
 // NotifyTopicFile holds the developer's private ntfy topic for phone pushes.
 // It only exists after ds notify setup.
 func (l Layout) NotifyTopicFile() string {
