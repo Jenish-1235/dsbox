@@ -78,12 +78,15 @@ func TestArtifactSubmitRefuses(t *testing.T) {
 		}
 	}
 	for _, args := range [][]string{
-		{"submit", md, "--title", "T"},                           // not HTML
-		{"submit", html},                                         // no title
-		{"submit", html, "--title", "T", "--project", "../etc"},  // a path
-		{"submit", html, "--title", "T", "--slug", "../../evil"}, // a path
-		{"submit", html, "--title"},                              // no value
-		{"submit", html, "--title", "T", "--nope", "x"},          // unknown option
+		// Not HTML, then no title.
+		{"submit", md, "--title", "T"},
+		{"submit", html},
+		// Names that are paths.
+		{"submit", html, "--title", "T", "--project", "../etc"},
+		{"submit", html, "--title", "T", "--slug", "../../evil"},
+		// An option without a value, then an unknown option.
+		{"submit", html, "--title"},
+		{"submit", html, "--title", "T", "--nope", "x"},
 		{"url", "../x"}, {"rm", "shop/../../x"}, {"frobnicate"},
 	} {
 		if err := c.run(args); err == nil {
