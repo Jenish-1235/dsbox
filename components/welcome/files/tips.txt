@@ -26,3 +26,4 @@ screenshot for Claude: copy it on the laptop, press Ctrl+Alt+V, then Ctrl+V past
 ds notify setup sends a phone push when Claude is done or needs you; the terminal already rings
 links are https now: ds cert shows the one-time step to trust the devbox certificate on your laptop
 projects you started with ds up start again by themselves after a reboot; ds stop keeps one stopped
+https://artifacts.devbox has every HTML artifact (design docs, reports, dashboards) Claude submitted with ds artifact submit

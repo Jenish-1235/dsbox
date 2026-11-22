@@ -225,6 +225,7 @@ it):
 | `adlc/` | A clone of [ADLC](https://github.com/Jenish-1235/adlc); its templates come first in `ds new` |
 | `share/` | The cheatsheet and tips |
 | `inbox/` | Screenshots sent from the laptop, kept 7 days |
+| `artifacts/` | HTML artifacts from `ds artifact submit`, shown on `artifacts.devbox` |
 
 Machine settings are in `/etc/devbox/devbox.env`, installed from
 [config/devbox.env](config/devbox.env). How updates, components, project

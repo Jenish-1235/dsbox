@@ -62,6 +62,7 @@ The operator chooses the size. The defaults:
 | `https://<project>.devbox` | the app, in the browser, Postman or on a phone (`http://` works too) |
 | `http://devbox/` | every project, running or stopped, plus the cheatsheet |
 | `http://dbs.devbox/` | running databases, grouped by project, with connection strings to copy |
+| `http://artifacts.devbox/` | HTML artifacts (design docs, reports, dashboards) from every project |
 | `devbox:<port>` | databases and other Docker services, e.g. `devbox:5432` in DBeaver or TablePlus |
 
 - Type the trailing `/` the first time (`shop.devbox/`) so the browser doesn't
@@ -70,6 +71,37 @@ The operator chooses the size. The defaults:
   points to `http://devbox/`.
 - HTTPS links need the devbox's certificate trusted once per laptop: `ds cert`
   shows how. Phones can keep using `http://`.
+
+## Artifacts: `ds artifact`
+
+`https://artifacts.devbox` collects the HTML artifacts that you and Claude
+make in any project: design docs, reports, dashboards, diagrams. It lists
+them newest first, with a project picker and a title filter, and works on a
+phone.
+
+```sh
+ds artifact submit report.html --title "Load test report"   # prints its link
+ds artifact submit out/x.html --title "…" --slug load-test --project shop
+ds artifact ls                       # every artifact, newest first
+ds artifact url shop/load-test       # print its link
+ds artifact rm shop/load-test        # delete it
+```
+
+- The project is the one you're in (like `ds up`); the slug is the file name
+  (`Load Test.html` → `load-test`). Submitting the same project and slug again
+  replaces it and moves it to the top.
+- An artifact is one self-contained `.html` file of at most 20 MB: inline CSS
+  and JS, or CDN links pinned to a version. Images and scripts next to it on
+  disk aren't copied.
+- Claude Code submits finished design docs, reports and dashboards by itself
+  and replies with the link. Their sources (e.g. Markdown) stay in the
+  project.
+- Each artifact opens under a slim bar (back, title, project, open raw) in a
+  sandbox: its scripts run, but can't reach the hub or other devbox pages,
+  and can't use cookies or `localStorage`.
+- Only commands on the devbox can add or delete artifacts; the page only
+  shows them. They're kept in `~/.devbox/artifacts` and survive reboots and
+  updates.
 
 ## Docker: `ds d`
 
@@ -118,8 +150,9 @@ shows the setting in effect. Log in to `gh` (and
 ## Claude Code
 
 - `claude` knows this machine. It runs apps with `ds up` and replies with the
-  link, keeps servers listening where the laptop can reach them, follows ADLC
-  in template projects, and asks before using `sudo`.
+  link, submits finished HTML artifacts with `ds artifact submit`, keeps
+  servers listening where the laptop can reach them, follows ADLC in template
+  projects, and asks before using `sudo`.
 - `~/.claude/CLAUDE.md` belongs to the developer. The devbox only adds one
   import line for its own guide.
 - When Claude finishes or waits for input, the terminal bell rings, from any
@@ -190,4 +223,5 @@ Running in the background:
 | `~/.devbox/backups` | copies of any file an update replaced |
 | `~/.devbox/templates` | personal project templates |
 | `~/.devbox/inbox` | screenshots from the laptop |
+| `~/.devbox/artifacts` | artifacts from `ds artifact submit` |
 | `/etc/devbox/devbox.env` | machine settings (`ds config` shows them) |

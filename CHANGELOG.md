@@ -3,6 +3,12 @@
 ## Unreleased
 
 - First public release of dsbox, under the MIT licence.
+- Artifact hub at `https://artifacts.devbox`: `ds artifact submit <file.html>
+  --title "…"` keeps a self-contained HTML artifact (design doc, report,
+  dashboard) from any project, and `ds artifact ls`, `url` and `rm` manage
+  them. The page lists them newest first with project and text filters, and
+  shows each in a sandbox. Claude Code is told to submit finished artifacts and
+  reply with the link.
 - `infra/`: OpenTofu for one devbox per workspace, with per-devbox values and
   state in a private ops folder (`$DEVBOX_OPS`, default `.ops/`).
 - `just state-backup <env>` (also run by `just infra-apply`): copies the state
