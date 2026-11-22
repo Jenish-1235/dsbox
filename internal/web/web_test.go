@@ -50,6 +50,8 @@ func fakeDocker(t *testing.T) *dockui.Client {
 func newServer(t *testing.T) Server {
 	t.Helper()
 	// An empty tmux socket folder: the page must not see the machine's real projects.
+	// Inside tmux, $TMUX points tmux at the developer's own server; clear it.
+	t.Setenv("TMUX", "")
 	t.Setenv("TMUX_TMPDIR", t.TempDir())
 	root := t.TempDir()
 	l := layout.Layout{Home: root, Root: filepath.Join(root, ".devbox")}
