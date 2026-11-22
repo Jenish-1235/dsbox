@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jenish-1235/dsbox/internal/artifact"
 	"github.com/Jenish-1235/dsbox/internal/devproj"
 	"github.com/Jenish-1235/dsbox/internal/dockui"
 	"github.com/Jenish-1235/dsbox/internal/layout"
@@ -16,8 +17,8 @@ import (
 	"github.com/Jenish-1235/dsbox/internal/web"
 )
 
-// ServeAddr is where ds serve listens; Caddy forwards http://devbox and
-// http://dbs.devbox here.
+// ServeAddr is where ds serve listens; Caddy forwards http://devbox,
+// http://dbs.devbox and http://artifacts.devbox here.
 const ServeAddr = devproj.PagesAddr
 
 // serve runs the devbox pages until ctx ends, or until ds itself is replaced
@@ -25,8 +26,11 @@ const ServeAddr = devproj.PagesAddr
 func serve(ctx context.Context, l layout.Layout) error {
 	d := devproj.Dev{S: devproj.LoadSettings(l), Out: ui.Plain(os.Stderr), W: os.Stderr}
 	srv := &http.Server{
-		Addr:              ServeAddr,
-		Handler:           web.Server{Dev: d, Docker: dockui.NewClient(dockui.SocketPath())},
+		Addr: ServeAddr,
+		Handler: web.Server{
+			Dev: d, Docker: dockui.NewClient(dockui.SocketPath()),
+			Artifacts: artifact.Store{Dir: l.Artifacts()},
+		},
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	ctx, cancel := context.WithCancel(ctx)

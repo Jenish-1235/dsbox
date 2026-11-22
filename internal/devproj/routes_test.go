@@ -97,7 +97,7 @@ func TestRoutesTLS(t *testing.T) {
 		"{\n\tauto_https disable_redirects\n\tskip_install_trust\n}\n",
 		"http://api.devbox, https://api.devbox {\n\ttls internal\n\treverse_proxy 127.0.0.1:4101\n",
 		"http://shop.devbox, https://shop.devbox {\n\ttls internal\n\treverse_proxy 127.0.0.1:4100\n",
-		"http://devbox, https://devbox, http://dbs.devbox, https://dbs.devbox {\n\ttls internal\n\treverse_proxy 127.0.0.1:4099\n",
+		"http://devbox, https://devbox, http://dbs.devbox, https://dbs.devbox, http://artifacts.devbox, https://artifacts.devbox {\n\ttls internal\n\treverse_proxy 127.0.0.1:4099\n",
 		// No certificate for the catch-all: clients reject *.devbox.
 		"\nhttp://*.devbox {\n\trespond",
 		"See https://devbox for the list.",
@@ -125,7 +125,7 @@ func TestRoutes(t *testing.T) {
 		"http://api.devbox {\n\treverse_proxy 127.0.0.1:4101\n",
 		"http://shop.devbox {\n\treverse_proxy 127.0.0.1:4100\n",
 		"ds up shop",
-		"http://devbox, http://dbs.devbox {\n\treverse_proxy 127.0.0.1:4099\n",
+		"http://devbox, http://dbs.devbox, http://artifacts.devbox {\n\treverse_proxy 127.0.0.1:4099\n",
 		"http://*.devbox {",
 	} {
 		if !strings.Contains(got, want) {
@@ -161,13 +161,15 @@ func TestRoutesNotFoundNamesTheProject(t *testing.T) {
 
 func TestRoutesSkipsReservedNames(t *testing.T) {
 	s := Settings{Host: "devbox", AppsDomain: "devbox", AppsTLS: "off"}
-	got := string(s.Routes(Ports{"dbs": 4100, "": 4101, "shop": 4102}))
-	// One dbs.devbox (the devbox pages): Caddy rejects a file that repeats it.
-	if n := strings.Count(got, "dbs.devbox"); n != 1 {
-		t.Errorf("dbs.devbox appears %d times, want once:\n%s", n, got)
+	got := string(s.Routes(Ports{"dbs": 4100, "": 4101, "shop": 4102, "artifacts": 4103}))
+	// One dbs.devbox and artifacts.devbox (the devbox pages): Caddy rejects a file that repeats one.
+	for _, host := range []string{"dbs.devbox", "artifacts.devbox"} {
+		if n := strings.Count(got, host); n != 1 {
+			t.Errorf("%s appears %d times, want once:\n%s", host, n, got)
+		}
 	}
-	if strings.Contains(got, "127.0.0.1:4100") || strings.Contains(got, "127.0.0.1:4101") || !strings.Contains(got, "http://shop.devbox {") {
-		t.Errorf("Routes() should skip dbs and the empty name and keep shop:\n%s", got)
+	if strings.Contains(got, "127.0.0.1:4100") || strings.Contains(got, "127.0.0.1:4101") || strings.Contains(got, "127.0.0.1:4103") || !strings.Contains(got, "http://shop.devbox {") {
+		t.Errorf("Routes() should skip dbs, artifacts and the empty name and keep shop:\n%s", got)
 	}
 }
 

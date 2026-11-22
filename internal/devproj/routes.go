@@ -10,7 +10,7 @@ import (
 )
 
 // PagesAddr is where `ds serve` listens: the live pages for the bare apps
-// domain (http://devbox) and dbs.<apps domain>.
+// domain (http://devbox), dbs.<apps domain> and artifacts.<apps domain>.
 const PagesAddr = "127.0.0.1:4099"
 
 // RoutesFile is the Caddyfile the devbox-web service runs: one site per project,
@@ -74,8 +74,8 @@ func (s Settings) Routes(ports Ports) []byte {
 		fmt.Fprintf(&b, "\t\trespond \"%s isn't running. Start it on the devbox with: ds up %s\" 502\n", name, name)
 		b.WriteString("\t}\n}\n")
 	}
-	// The devbox pages: projects + cheatsheet, and the databases.
-	site(domain, "dbs."+domain)
+	// The devbox pages: projects + cheatsheet, the databases, and the artifacts.
+	site(domain, "dbs."+domain, "artifacts."+domain)
 	fmt.Fprintf(&b, "\treverse_proxy %s\n", PagesAddr)
 	b.WriteString("\thandle_errors {\n")
 	b.WriteString("\t\trespond \"The devbox pages aren't running. On the devbox: ds doctor\" 502\n")

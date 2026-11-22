@@ -153,5 +153,15 @@ func Name(folder string) string {
 // ValidName reports whether name is already a clean project name.
 func ValidName(name string) bool { return name != "" && Name(name) == name && !Reserved(name) }
 
-// Reserved names are taken by devbox pages: dbs.<apps domain> lists databases.
-func Reserved(name string) bool { return name == "dbs" }
+// Reserved names are taken by devbox pages: dbs.<apps domain> lists
+// databases, artifacts.<apps domain> shows submitted HTML artifacts.
+func Reserved(name string) bool { return name == "dbs" || name == "artifacts" }
+
+// ArtifactsURL is the artifact hub, https://artifacts.<apps domain>, or ""
+// when there is no apps domain (no devbox pages).
+func (s Settings) ArtifactsURL() string {
+	if s.AppsDomain == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s://artifacts.%s", s.AppsScheme(), s.AppsDomain)
+}

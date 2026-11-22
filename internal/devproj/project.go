@@ -113,7 +113,7 @@ func (d Dev) projectRoot(dir string) string {
 // recorded as wanted, so ds restore starts it again after a reboot.
 func (d Dev) Up(ctx context.Context, p Project) error {
 	if Reserved(p.Name) {
-		// A project called dbs would clash with dbs.<apps domain>.
+		// A project called dbs or artifacts would clash with a devbox page.
 		return fmt.Errorf("%q can't be a project name: the devbox uses %s.<apps domain> for its own page; rename the folder", filepath.Base(p.Dir), p.Name)
 	}
 	if Running(ctx)[p.Name] {
