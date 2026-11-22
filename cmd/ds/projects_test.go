@@ -25,8 +25,10 @@ func TestCheckNewNameShowsProjectsDir(t *testing.T) {
 		if err := checkNewName(d, "cart"); err != nil {
 			t.Errorf("checkNewName(cart) = %v, want nil", err)
 		}
-		if err := checkNewName(d, "dbs"); err == nil {
-			t.Error("checkNewName(dbs) = nil, want an error")
+		for _, reserved := range []string{"dbs", "artifacts"} {
+			if err := checkNewName(d, reserved); err == nil {
+				t.Errorf("checkNewName(%s) = nil, want an error", reserved)
+			}
 		}
 	}
 }

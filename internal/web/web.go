@@ -2,6 +2,7 @@
 //
 //	http://<apps domain>       the developer's projects (running or not), databases, cheatsheet
 //	http://dbs.<apps domain>   running databases with connection strings
+//	http://artifacts.<apps domain>  HTML artifacts submitted with ds artifact submit
 //
 // Pages are rendered on every request from tmux, Docker and the cheatsheet,
 // so they're always current. Only the developer's Tailscale network can reach them.
@@ -17,14 +18,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Jenish-1235/dsbox/internal/artifact"
 	"github.com/Jenish-1235/dsbox/internal/devproj"
 	"github.com/Jenish-1235/dsbox/internal/dockui"
 )
 
 // Server renders the pages.
 type Server struct {
-	Dev    devproj.Dev
-	Docker *dockui.Client
+	Dev       devproj.Dev
+	Docker    *dockui.Client
+	Artifacts artifact.Store
 }
 
 // Database is one running database container and how to reach it.
@@ -42,13 +45,17 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	host, _, _ := strings.Cut(r.Host, ":")
+	if strings.HasPrefix(host, "artifacts.") {
+		s.serveArtifacts(w, r)
+		return
+	}
 	if r.URL.Path == "/root.crt" {
 		s.serveCA(w, r)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	host, _, _ := strings.Cut(r.Host, ":")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if strings.HasPrefix(host, "dbs.") {
@@ -138,6 +145,13 @@ func (s Server) homePage(ctx context.Context) []byte {
 		fmt.Fprintf(&b, "<h2>Databases</h2>\n<p><a href=\"%s\">%d running</a> · connection strings on %s</p>\n", dbsURL, len(dbs), dbsURL)
 	}
 
+	if hub := s.Dev.S.ArtifactsURL(); hub != "" {
+		u := html.EscapeString(hub)
+		if arts, err := s.Artifacts.List(); err == nil {
+			fmt.Fprintf(&b, "<h2>Artifacts</h2>\n<p><a href=\"%s\">%d submitted</a> · design docs, reports and dashboards on %s</p>\n", u, len(arts), u)
+		}
+	}
+
 	if cheat, err := os.ReadFile(s.Dev.S.CheatsheetFile()); err == nil {
 		b.WriteString("<h2>Cheatsheet</h2>\n<pre>")
 		b.WriteString(html.EscapeString(string(cheat)))
@@ -185,7 +199,10 @@ func (s Server) databasesPage(ctx context.Context) []byte {
 	return b.Bytes()
 }
 
-func head(b *bytes.Buffer, title string) {
+func head(b *bytes.Buffer, title string) { headCSS(b, title, "") }
+
+// headCSS starts a page in the devbox look, with extra CSS for that page.
+func headCSS(b *bytes.Buffer, title, css string) {
 	fmt.Fprintf(b, `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>%s</title>
@@ -201,8 +218,8 @@ main{max-width:900px;margin:0 auto;padding:32px 16px}h1{font-size:22px;margin:0 
 code{font:13px ui-monospace,"JetBrains Mono","Cascadia Code",monospace;user-select:all;word-break:break-all}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}.muted{color:var(--muted)}.on{color:var(--on)}.off{color:var(--muted)}
 pre{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;font:13px/1.55 ui-monospace,"JetBrains Mono","Cascadia Code",monospace}
-</style></head><body><main>
-`, html.EscapeString(title))
+%s</style></head><body><main>
+`, html.EscapeString(title), css)
 }
 
 func foot(b *bytes.Buffer) { b.WriteString("</main></body></html>\n") }

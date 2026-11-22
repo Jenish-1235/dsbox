@@ -77,7 +77,7 @@ os: linux                 # optional: skip the component elsewhere (e.g. a Mac)
 | `tmux` | tmux with mouse support, splits in the current folder, and bells passed on to the laptop |
 | `toolchain` | Checks the languages, build tools and CLIs every project expects |
 | `updates` | The daily update check |
-| `web` | The pages behind `http://devbox` (projects, cheatsheet) and `http://dbs.devbox` (databases) |
+| `web` | The pages behind `http://devbox` (projects, cheatsheet), `http://dbs.devbox` (databases) and `http://artifacts.devbox` (artifacts) |
 | `restore` | Starts the projects that were running before a reboot |
 | `welcome` | The status line in new terminals, tips, and the cheatsheet |
 | `claude` | Claude Code instructions for the machine, and its bell and phone hooks |
@@ -152,12 +152,39 @@ Tailscale address, and Caddy on ports 80 and 443 as the developer
 The tailnet must send lookups for the apps domain to the devbox (split DNS):
 see [operator-guide.md](operator-guide.md#4-tailscale).
 
-With `DEVBOX_APPS_TLS=internal`, every project, `devbox` and `dbs.devbox` also
+With `DEVBOX_APPS_TLS=internal`, every project, `devbox`, `dbs.devbox` and `artifacts.devbox` also
 answer on HTTPS, signed by Caddy's own CA (`tls internal`, kept in
 `~/.local/share/caddy`). HTTP keeps working and is not redirected, for phones.
 `ds cert` prints the root certificate's path and the one-time import for
 Windows, macOS and Firefox; `http://devbox/root.crt` serves it. Websockets
 (Vite and Next.js live reload) pass through Caddy on both.
+
+## Artifacts
+
+`ds artifact submit` copies an HTML file into `~/.devbox/artifacts`
+(`<project>/<slug>.html`, plus `index.json` with each title and its created
+and updated times; folder `0700`, files `0600`). Project and slug are
+lowercase letters, digits and `-`, so neither can hold a path; the index is
+written atomically under a `flock` on `.lock`, which the pages take shared to
+read. Files over 20 MB are refused.
+
+`ds serve` answers `artifacts.<apps domain>` from the same folder (Caddy
+sends it there with `devbox` and `dbs.devbox`; `artifacts` is a reserved
+project name, like `dbs`):
+
+| Path | |
+|---|---|
+| `/` | every artifact, newest first; filter by project (`?project=`) and title |
+| `/<project>/<slug>` | a top bar and the artifact in an iframe with `sandbox="allow-scripts allow-popups allow-forms"` |
+| `/<project>/<slug>/raw` | the file, with `Content-Security-Policy: sandbox allow-scripts allow-popups allow-forms` and `nosniff` |
+
+- **Writing is local only.** The pages accept only `GET` and `HEAD`; only
+  `ds`, running as the developer, writes the folder. Caddy makes laptop
+  requests come from `127.0.0.1`, so nothing trusts the client address.
+- **Artifacts can't reach the devbox pages.** Without `allow-same-origin` an
+  artifact runs in an opaque origin, in the viewer and when opened raw, so its
+  scripts can't read the hub, other artifacts or other `.devbox` sites (nor
+  use cookies or `localStorage`). Scripts from CDNs still load.
 
 ## After a reboot
 

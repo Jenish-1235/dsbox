@@ -1,5 +1,5 @@
 name: web
-description: the live pages behind http://devbox (projects, cheatsheet) and http://dbs.devbox (databases)
+description: the live pages behind http://devbox (projects, cheatsheet) http://dbs.devbox (databases) and http://artifacts.devbox (HTML artifacts)
 os: linux
 requires:
   - tmux

@@ -22,6 +22,7 @@ From your laptop (and phone)
   https://<project>.devbox    the app: browser, Postman (http:// works too, e.g. on a phone)
   https://devbox              every project (running or not), plus this cheatsheet
   https://dbs.devbox          running databases with ready-to-copy connection strings
+  https://artifacts.devbox    design docs, reports and dashboards from every project, newest first
   devbox:<port>               databases and other Docker services (ds d shows each one, c copies its connection string)
   ds cert                     once per laptop: trust the devbox certificate (file: http://devbox/root.crt)
 
@@ -36,6 +37,12 @@ Claude Code
   ds inbox                    screenshots sent from the laptop, newest first (kept 7 days)
   ds notify setup             phone push when Claude is done or needs you (ntfy app)
   ds notify off               stop phone pushes; the terminal bell stays
+
+Artifacts (https://artifacts.devbox)
+  ds artifact submit <file.html> --title "…"   add or replace one; prints its link (--slug, --project to name it)
+  ds artifact ls                               every artifact, newest first
+  ds artifact url <project>/<slug>             print its link
+  ds artifact rm <project>/<slug>              delete it
 
 Terminal
   t                           your workspace (tmux); keeps running when you close the laptop

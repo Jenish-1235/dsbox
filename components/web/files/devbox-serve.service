@@ -1,5 +1,5 @@
 [Unit]
-Description=devbox: live pages for http://devbox and http://dbs.devbox (ds serve)
+Description=devbox: live pages for http://devbox, http://dbs.devbox and http://artifacts.devbox (ds serve)
 
 [Service]
 ExecStart=%h/.devbox/bin/ds serve

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jenish-1235/dsbox/internal/artifact"
 	"github.com/Jenish-1235/dsbox/internal/devproj"
 	"github.com/Jenish-1235/dsbox/internal/dockui"
 	"github.com/Jenish-1235/dsbox/internal/layout"
@@ -50,6 +51,8 @@ func fakeDocker(t *testing.T) *dockui.Client {
 func newServer(t *testing.T) Server {
 	t.Helper()
 	// An empty tmux socket folder: the page must not see the machine's real projects.
+	// Inside tmux, $TMUX points tmux at the developer's own server; clear it.
+	t.Setenv("TMUX", "")
 	t.Setenv("TMUX_TMPDIR", t.TempDir())
 	root := t.TempDir()
 	l := layout.Layout{Home: root, Root: filepath.Join(root, ".devbox")}
@@ -57,7 +60,7 @@ func newServer(t *testing.T) Server {
 		S:   devproj.Settings{Layout: l, ProjectsDir: filepath.Join(root, "projects"), Host: "devbox", AppsDomain: "devbox"},
 		Out: ui.Plain(io.Discard), W: io.Discard,
 	}
-	return Server{Dev: d, Docker: fakeDocker(t)}
+	return Server{Dev: d, Docker: fakeDocker(t), Artifacts: artifact.Store{Dir: l.Artifacts()}}
 }
 
 func get(t *testing.T, s Server, url string) (int, string) {

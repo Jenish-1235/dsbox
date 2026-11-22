@@ -58,6 +58,14 @@ Claude Code:
   ds notify [off|<message>] show whether they're on, stop them, or send one
   ds inbox                  screenshots sent from the laptop (Ctrl+Alt+V), newest first
 
+Artifacts (HTML design docs, reports, dashboards on https://artifacts.devbox):
+  ds artifact submit <file.html> --title "…" [--project <name>] [--slug <name>]
+                            add or replace one and print its link (project: the one you're in;
+                            slug: the file name)
+  ds artifact ls            every artifact, newest first
+  ds artifact url <project>/<slug>   print its link
+  ds artifact rm <project>/<slug>    delete it
+
 Machine:
   ds status                 version, updates and health in one line each
   ds doctor [--fix]         check everything and explain how to fix problems
@@ -113,6 +121,8 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		return runNotify(ctx, l, rest, os.Stdin, stdout, out)
 	case "inbox":
 		return runInbox(l, out)
+	case "artifact", "artifacts":
+		return runArtifact(l, rest, stdout, out)
 	case "status":
 		return summary(ctx, l, out)
 	case "update":

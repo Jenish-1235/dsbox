@@ -22,7 +22,10 @@ here=$(cd "$(dirname "$0")" && pwd)
 outputs=$(cd "$here/../infra" && TF_WORKSPACE=$env tofu output -json)
 output() { jq -r --arg k "$1" '.[$k].value // empty' <<<"$outputs"; }
 export AWS_PROFILE=${AWS_PROFILE:-$(output aws_profile)} AWS_REGION=${AWS_REGION:-$(output region)}
-[ -n "$AWS_PROFILE" ] && [ -n "$AWS_REGION" ] || { echo "state-backup: no aws_profile/region output in workspace $env" >&2; exit 1; }
+if [ -z "$AWS_PROFILE" ] || [ -z "$AWS_REGION" ]; then
+  echo "state-backup: no aws_profile/region output in workspace $env" >&2
+  exit 1
+fi
 
 account=$(aws sts get-caller-identity --query Account --output text)
 bucket=${DEVBOX_STATE_BUCKET:-devbox-state-$account}

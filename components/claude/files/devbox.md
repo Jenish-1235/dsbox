@@ -15,6 +15,13 @@ You're running on the developer's remote dev machine (Ubuntu 24.04, Docker). The
 - Projects made from templates follow ADLC. Read `AGENTS.md` (it points to `.adlc/AGENTS.md`) and follow its policies, language standards and skills. Use the project's `just` recipes (`just --list`): `setup`, `dev`, `test`, `lint`, `up`, `down`.
 - You're not done until `just lint` and `just test` pass.
 
+## Artifacts
+
+- Finished artifacts meant for reading (design docs, reports, dashboards, diagrams) are built as one self-contained HTML file: inline CSS and JS, or CDN links pinned to an exact version.
+- Submit with `ds artifact submit <file.html> --title "…"` (in the project folder; `--slug` names it, default the file name). Re-submitting the same name replaces it. `https://artifacts.devbox` lists every project's artifacts.
+- Finish your reply with the URL it prints.
+- Keep source files (e.g. Markdown) in the project repo as usual; the HTML is what the developer reads.
+
 ## Screenshots and notifications
 
 - Screenshots the developer sends from the laptop land in `~/.devbox/inbox/` (`shot-<date>-<time>.png`, kept 7 days). They usually paste the full path; when they say "my screenshot" or "the screenshot" without one, read the newest file there (`ds inbox` lists them, newest first).
